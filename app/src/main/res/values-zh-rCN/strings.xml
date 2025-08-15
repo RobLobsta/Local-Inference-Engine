@@ -53,6 +53,10 @@
     <string name="chat_settings_label_sys_prompt">系统提示</string>
     <string name="chat_settings_label_chat_name">聊天名称</string>
     <string name="chat_settings_take_from_gguf">从 GGUF 模型获取</string>
+    <string name="chat_settings_desc_topP">Top-p（核）采样选择累积概率超过某个阈值的最小最可能词元集合，从而输出更具动态性和多样性的内容。</string>
+    <string name="chat_settings_desc_topK">Top-k 采样将模型的选择范围限制在 $k$ 个最可能的下一个词元内，从而确保输出内容更集中且更具可预测性。</string>
+    <string name="chat_settings_label_topP">Top P</string>
+    <string name="chat_settings_label_topK">Top K</string>
     <string name="context_size_taken_from_model">上下文大小取自模型</string>
     <string name="chat_settings_title_num_tokens">令牌数量</string>
     <string name="chat_settings_err_min_ctx_size">上下文大小应至少为 200 个令牌</string>

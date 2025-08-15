@@ -22,18 +22,20 @@ std::string common_token_to_piece(
 
 void
 LLMInference::loadModel(const char* model_path, float minP, float temperature, bool storeChats, long contextSize,
-                        const char* chatTemplate, int nThreads, bool useMmap, bool useMlock) {
+                        const char* chatTemplate, int nThreads, bool useMmap, bool useMlock, float topP, int topK) {
     LOGi("loading model with"
          "\n\tmodel_path = %s"
          "\n\tminP = %f"
          "\n\ttemperature = %f"
          "\n\tstoreChats = %d"
-         "\n\tcontextSize = %li"
+         "\n\tcontextSize = %d"
          "\n\tchatTemplate = %s"
          "\n\tnThreads = %d"
          "\n\tuseMmap = %d"
-         "\n\tuseMlock = %d",
-         model_path, minP, temperature, storeChats, contextSize, chatTemplate, nThreads, useMmap, useMlock);
+         "\n\tuseMlock = %d"
+         "\n\ttopP = %f"
+         "\n\ttopK = %i",
+         model_path, minP, temperature, (int)storeChats, (int)contextSize, chatTemplate, nThreads, useMmap, useMlock, topP, topK);
 
     // create an instance of llama_model
     llama_model_params model_params = llama_model_default_params();
@@ -65,6 +67,8 @@ LLMInference::loadModel(const char* model_path, float minP, float temperature, b
     llama_sampler_chain_add(_sampler, llama_sampler_init_min_p(minP, 1));
     llama_sampler_chain_add(_sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(_sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(topK));
+    llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(topP, 1));
 
     _formattedMessages = std::vector<char>(llama_n_ctx(_ctx));
     _messages.clear();

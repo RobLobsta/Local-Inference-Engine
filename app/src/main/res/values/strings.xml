@@ -32,11 +32,15 @@
     <string name="chat_settings_desc_temp">Temperature is a parameter that controls the randomness and creativity of LLM outputs, with lower temperatures producing more deterministic and focused responses, and higher temperatures leading to more diverse and creative outputs.</string>
     <string name="chat_settings_desc_ctx_length">The context length of a large language model (LLM) refers to the maximum number of tokens (words or subwords) it can process in a single input or output sequence. Larger context sizes need more memory.</string>
     <string name="chat_settings_desc_n_threads">The number of CPU threads to use for inference.</string>
+    <string name="chat_settings_desc_topP">Top-p sampling selects the smallest set of most probable tokens whose cumulative probability exceeds a threshold, allowing for a more dynamic and diverse output.</string>
+    <string name="chat_settings_desc_topK">Top-k sampling limits the model\'s choices to the k most likely next tokens, ensuring a more focused and predictable output.</string>
     <string name="chat_settings_label_ctx_size">Context Size</string>
     <string name="chat_settings_label_temp">Temperature</string>
     <string name="chat_settings_label_minp">min-p</string>
     <string name="chat_settings_label_sys_prompt">System Prompt</string>
     <string name="chat_settings_label_chat_name">Chat Name</string>
+    <string name="chat_settings_label_topP">top P</string>
+    <string name="chat_settings_label_topK">top K</string>
     <string name="chat_settings_take_from_gguf">Take from GGUF Model</string>
     <string name="context_size_taken_from_model">Context size taken from model</string>
     <string name="chat_settings_title_num_tokens">No. of tokens</string>

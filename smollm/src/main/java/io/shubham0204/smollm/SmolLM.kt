@@ -173,6 +173,8 @@ class SmolLM {
         val numThreads: Int = 4,
         val useMmap: Boolean = true,
         val useMlock: Boolean = false,
+        val topP: Float = 1.0f,
+        val topK: Int = 1,
     )
 
     /**
@@ -210,6 +212,8 @@ class SmolLM {
                 params.numThreads,
                 params.useMmap,
                 params.useMlock,
+                params.topP,
+                params.topK,
             )
     }
 
@@ -334,6 +338,8 @@ class SmolLM {
         nThreads: Int,
         useMmap: Boolean,
         useMlock: Boolean,
+        topP: Float,
+        topK: Int,
     ): Long
 
     private external fun addChatMessage(

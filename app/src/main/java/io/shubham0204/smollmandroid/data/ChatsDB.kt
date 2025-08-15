@@ -64,6 +64,8 @@ data class Chat(
     var nThreads: Int = 4,
     var useMmap: Boolean = true,
     var useMlock: Boolean = false,
+    var topK: Int = 50,
+    var topP: Float = 1.0f,
     /**
      * The maximum number of tokens that can be used as context to the model
      * This is editable by users in the EditChatSettingsScreen.kt.

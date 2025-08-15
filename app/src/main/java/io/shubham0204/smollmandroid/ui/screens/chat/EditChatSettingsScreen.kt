@@ -78,6 +78,8 @@ fun EditChatSettingsScreen(
         var chatTemplate by remember { mutableStateOf(chat.chatTemplate) }
         var useMmap by remember { mutableStateOf(chat.useMmap) }
         var useMlock by remember { mutableStateOf(chat.useMlock) }
+        var topP by remember { mutableStateOf(chat.topP) }
+        var topK by remember { mutableStateOf(chat.topK) }
         val context = LocalContext.current
         val llmModel = viewModel.modelsRepository.getModelFromId(chat.llmModelId)
 
@@ -110,6 +112,8 @@ fun EditChatSettingsScreen(
                                             nThreads = nThreads,
                                             useMmap = useMmap,
                                             useMlock = useMlock,
+                                            topP = topP,
+                                            topK = topK,
                                         )
                                     if (chat != updatedChat) {
                                         viewModel.updateChat(updatedChat)
@@ -229,6 +233,48 @@ fun EditChatSettingsScreen(
                     )
                     Text(
                         text = "%.1f".format(temperature),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        stringResource(R.string.chat_settings_label_topP),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.chat_settings_desc_topP),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Slider(
+                        value = topP,
+                        onValueChange = { topP = it },
+                        valueRange = 0.0f..1.0f,
+                        steps = 100,
+                    )
+                    Text(
+                        text = "%.1f".format(topP),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        stringResource(R.string.chat_settings_label_topK),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.chat_settings_desc_topK),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Slider(
+                        value = topK.toFloat(),
+                        onValueChange = { topK = it.toInt() },
+                        valueRange = 0.0f..128.0f,
+                        steps = 128,
+                    )
+                    Text(
+                        text = topK.toString(),
                         style = MaterialTheme.typography.labelSmall,
                     )
 

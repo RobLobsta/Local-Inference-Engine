@@ -59,13 +59,13 @@ data class Chat(
     /**
      * LLM inference parameters that are used for this chat.
      */
-    var minP: Float = 0.05f,
-    var temperature: Float = 1.0f,
+    var minP: Float = 0.1f,
+    var temperature: Float = 0.8f,
     var nThreads: Int = 4,
     var useMmap: Boolean = true,
     var useMlock: Boolean = false,
-    var topK: Int = 50,
-    var topP: Float = 1.0f,
+    var topK: Int = 40,
+    var topP: Float = 0.9f,
     var xtcP: Float = 0.0f,
     var xtcT: Float = 1.0f,
     /**

@@ -67,12 +67,26 @@ LLMInference::loadModel(const char* model_path, float minP, float temperature, b
     llama_sampler_chain_params sampler_params = llama_sampler_chain_default_params();
     sampler_params.no_perf                    = true; // disable performance metrics
     _sampler                                  = llama_sampler_chain_init(sampler_params);
-    llama_sampler_chain_add(_sampler, llama_sampler_init_min_p(minP, 1));
+
     llama_sampler_chain_add(_sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(_sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-    llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(topK));
-    llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(topP, 1));
-    llama_sampler_chain_add(_sampler, llama_sampler_init_xtc(xtcP, xtcT, 1, LLAMA_DEFAULT_SEED));
+    if (minP >= 0.01f) {
+        // minP = 0.0 (disabled)
+        // minP can be adjusted across 100 steps between [0.0,1.0], the smallest step being 0.01
+        llama_sampler_chain_add(_sampler, llama_sampler_init_min_p(minP, 1));
+    }
+    if (topK > 0) {
+        LOGi("Enabled top-k sampling with k=%d", topK);
+        llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(topK));
+    }
+    if (topP <= 0.99) {
+        LOGi("Enabled top-p sampling with p=%f", topP);
+        llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(topP, 1));
+    }
+    if (xtcT <= 0.99 || xtcP >= 0.01) {
+        LOGi("Enabled XTC sampling with p=%f, t=%f", xtcP, xtcT);
+        llama_sampler_chain_add(_sampler, llama_sampler_init_xtc(xtcP, xtcT, 1, LLAMA_DEFAULT_SEED));
+    }
 
     _formattedMessages = std::vector<char>(llama_n_ctx(_ctx));
     _messages.clear();
@@ -233,7 +247,7 @@ LLMInference::~LLMInference() {
         free(const_cast<char*>(message.content));
     }
     free(const_cast<char*>(_chatTemplate));
-    llama_sampler_free(_sampler);
+    //llama_sampler_free(_sampler);
     llama_free(_ctx);
     llama_model_free(_model);
 }

@@ -57,6 +57,10 @@
     <string name="chat_settings_desc_topK">Top-k 采样将模型的选择范围限制在 $k$ 个最可能的下一个词元内，从而确保输出内容更集中且更具可预测性。</string>
     <string name="chat_settings_label_topP">Top P</string>
     <string name="chat_settings_label_topK">Top K</string>
+    <string name="chat_settings_desc_xtcP">从采样中移除所有令牌，但留下概率最低的一个，移除概率为 xtcP</string>
+    <string name="chat_settings_desc_xtcT">如果多个令牌的预测概率都达到或超过阈值 xtcT…</string>
+    <string name="chat_settings_label_xtcP">XTC 概率</string>
+    <string name="chat_settings_label_xtcT">XTC 阈值</string>
     <string name="context_size_taken_from_model">上下文大小取自模型</string>
     <string name="chat_settings_title_num_tokens">令牌数量</string>
     <string name="chat_settings_err_min_ctx_size">上下文大小应至少为 200 个令牌</string>

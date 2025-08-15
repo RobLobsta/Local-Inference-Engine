@@ -175,6 +175,8 @@ class SmolLM {
         val useMlock: Boolean = false,
         val topP: Float = 1.0f,
         val topK: Int = 1,
+        val xtcP: Float = 0.0f,
+        val xtcT: Float = 1.0f,
     )
 
     /**
@@ -214,6 +216,8 @@ class SmolLM {
                 params.useMlock,
                 params.topP,
                 params.topK,
+                params.xtcP,
+                params.xtcT,
             )
     }
 
@@ -340,6 +344,8 @@ class SmolLM {
         useMlock: Boolean,
         topP: Float,
         topK: Int,
+        xtcP: Float,
+        xtcT: Float,
     ): Long
 
     private external fun addChatMessage(

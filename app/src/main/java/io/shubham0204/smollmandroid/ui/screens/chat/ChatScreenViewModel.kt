@@ -331,6 +331,8 @@ class ChatScreenViewModel(
                         chat.useMlock,
                         chat.topP,
                         chat.topK,
+                        chat.xtcP,
+                        chat.xtcT,
                     ),
                     onError = { e ->
                         _modelLoadState.value = ModelLoadingState.FAILURE

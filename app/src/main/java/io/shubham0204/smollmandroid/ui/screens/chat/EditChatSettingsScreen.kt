@@ -80,6 +80,8 @@ fun EditChatSettingsScreen(
         var useMlock by remember { mutableStateOf(chat.useMlock) }
         var topP by remember { mutableStateOf(chat.topP) }
         var topK by remember { mutableStateOf(chat.topK) }
+        var xtcP by remember { mutableStateOf(chat.xtcP) }
+        var xtcT by remember { mutableStateOf(chat.xtcT) }
         val context = LocalContext.current
         val llmModel = viewModel.modelsRepository.getModelFromId(chat.llmModelId)
 
@@ -275,6 +277,48 @@ fun EditChatSettingsScreen(
                     )
                     Text(
                         text = topK.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        stringResource(R.string.chat_settings_label_xtcT),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.chat_settings_desc_xtcT),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Slider(
+                        value = xtcT,
+                        onValueChange = { xtcT = it },
+                        valueRange = 0.0f..1.0f,
+                        steps = 100,
+                    )
+                    Text(
+                        text = "%.1f".format(xtcT),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        stringResource(R.string.chat_settings_label_xtcP),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.chat_settings_desc_xtcP),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Slider(
+                        value = xtcP,
+                        onValueChange = { xtcP = it },
+                        valueRange = 0.0f..1.0f,
+                        steps = 100,
+                    )
+                    Text(
+                        text = "%.1f".format(xtcP),
                         style = MaterialTheme.typography.labelSmall,
                     )
 

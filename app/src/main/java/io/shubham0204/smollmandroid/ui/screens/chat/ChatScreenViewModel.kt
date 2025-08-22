@@ -26,6 +26,7 @@ import android.util.Log
 import android.util.TypedValue
 import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
 import io.noties.markwon.core.CorePlugin
@@ -247,6 +248,7 @@ class ChatScreenViewModel(
                         "<blockquote><i><h6>${matchResult.groupValues[1].trim()}</i></h6></blockquote>"
                     }
                 },
+                scope = viewModelScope,
                 onPartialResponseGenerated = {
                     _partialResponse.value = it
                 },
@@ -334,6 +336,7 @@ class ChatScreenViewModel(
                         chat.xtcP,
                         chat.xtcT,
                     ),
+                    scope = viewModelScope,
                     onError = { e ->
                         _modelLoadState.value = ModelLoadingState.FAILURE
                         onComplete(ModelLoadingState.FAILURE)

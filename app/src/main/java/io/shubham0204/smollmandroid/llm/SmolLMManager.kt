@@ -32,7 +32,6 @@ import kotlin.time.measureTime
 private const val LOGTAG = "[SmolLMManager-Kt]"
 private val LOGD: (String) -> Unit = { Log.d(LOGTAG, it) }
 
-@Single
 class SmolLMManager(
     private val appDB: AppDB,
 ) {
@@ -54,13 +53,14 @@ class SmolLMManager(
         chat: Chat,
         modelPath: String,
         params: SmolLM.InferenceParams = SmolLM.InferenceParams(),
+        scope: CoroutineScope,
         onError: (Exception) -> Unit,
         onSuccess: () -> Unit,
     ) {
         try {
             this.chat = chat
             modelInitJob =
-                CoroutineScope(Dispatchers.Default).launch {
+                scope.launch(Dispatchers.Default) {
                     if (isInstanceLoaded) {
                         close()
                     }
@@ -94,6 +94,7 @@ class SmolLMManager(
     fun getResponse(
         query: String,
         responseTransform: (String) -> String,
+        scope: CoroutineScope,
         onPartialResponseGenerated: (String) -> Unit,
         onSuccess: (SmolLMResponse) -> Unit,
         onCancelled: () -> Unit,
@@ -102,7 +103,7 @@ class SmolLMManager(
         try {
             assert(chat != null) { "Please call SmolLMManager.create() first." }
             responseGenerationJob =
-                CoroutineScope(Dispatchers.Default).launch {
+                scope.launch(Dispatchers.Default) {
                     isInferenceOn = true
                     var response = ""
                     val duration =

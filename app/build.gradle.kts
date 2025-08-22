@@ -6,14 +6,14 @@ plugins {
 }
 
 android {
-    namespace = "io.shubham0204.smollmandroid"
-    compileSdk = 35
+    namespace = "com.roblobsta.lobstachat"
+    compileSdk = 34
     ndkVersion = "27.2.12479018"
 
     defaultConfig {
-        applicationId = "io.shubham0204.smollmandroid"
+        applicationId = "com.roblobsta.lobstachat"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 10
         versionName = "10"
 
@@ -83,8 +83,8 @@ dependencies {
     implementation(libs.androidx.material3.icons.extended)
     implementation(libs.androidx.compose.navigation)
 
-    implementation(project(":smollm"))
-    implementation(project(":hf-model-hub-api"))
+    implementation(project(":lobstachat-lm"))
+    implementation(project(":lobstachat-hf-api"))
 
     // Koin: dependency injection
     implementation(libs.koin.android)
@@ -94,27 +94,25 @@ dependencies {
     ksp(libs.koin.ksp.compiler)
 
     // compose-markdown: Markdown rendering in Compose
-    implementation("io.noties.markwon:core:4.6.2")
-    implementation("io.noties.markwon:ext-latex:4.6.2")
-    implementation("io.noties.markwon:ext-strikethrough:4.6.2")
-    implementation("io.noties.markwon:ext-tables:4.6.2")
-    implementation("io.noties.markwon:ext-tasklist:4.6.2")
-    implementation("io.noties.markwon:linkify:4.6.2")
-    implementation("io.noties.markwon:html:4.6.2")
-    implementation("io.noties.markwon:syntax-highlight:4.6.2")
-    implementation("io.noties:prism4j:2.0.0")
-    annotationProcessor("io.noties:prism4j-bundler:2.0.0")
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.ext.latex)
+    implementation(libs.markwon.ext.strikethrough)
+    implementation(libs.markwon.ext.tables)
+    implementation(libs.markwon.ext.tasklist)
+    implementation(libs.markwon.linkify)
+    implementation(libs.markwon.html)
+    implementation(libs.markwon.syntax.highlight)
+    implementation(libs.prism4j)
+    annotationProcessor(libs.prism4j.bundler)
 
     // Jetpack Paging3: loading paged data for Compose
-    val pagingVersion = "3.3.5"
-    implementation("androidx.paging:paging-runtime:$pagingVersion")
-    implementation("androidx.paging:paging-compose:$pagingVersion")
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
 
     // Android Room: Local persistence with SQLite
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
 
     // compose-icons: Feather icons pack
     // https://github.com/DevSrSouza/compose-icons

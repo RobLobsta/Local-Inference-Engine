@@ -3,6 +3,21 @@
 #include <string>
 #include <vector>
 
+struct InferenceParams {
+    float minP;
+    float temperature;
+    bool storeChats;
+    long contextSize;
+    const char* chatTemplate;
+    int nThreads;
+    bool useMmap;
+    bool useMlock;
+    float topP;
+    int topK;
+    float xtcP;
+    float xtcT;
+};
+
 class LLMInference {
     // llama.cpp-specific types
     llama_context* _ctx;
@@ -38,9 +53,7 @@ class LLMInference {
     bool _isValidUtf8(const char* response);
 
   public:
-    void loadModel(const char* modelPath, float minP, float temperature, bool storeChats, long contextSize,
-                   const char* chatTemplate, int nThreads, bool useMmap, bool useMlock, float topP, int topK,
-                   float xtcP, float xtcT);
+    void loadModel(const char* modelPath, const InferenceParams& params);
 
     void addChatMessage(const char* message, const char* role);
 

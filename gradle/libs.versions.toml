@@ -1,19 +1,23 @@
 [versions]
-agp = "8.10.1"
+agp = "8.6.0"
 kotlin = "2.0.0"
-coreKtx = "1.15.0"
+coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
-lifecycleRuntimeKtx = "2.8.7"
-activityCompose = "1.9.3"
-composeBom = "2024.10.01"
-navigationComposeVersion = "2.8.3"
+lifecycleRuntimeKtx = "2.8.1"
+activityCompose = "1.9.0"
+composeBom = "2024.08.00"
+navigationComposeVersion = "2.7.7"
 koin = "3.5.6"
 koinAnnotations = "1.3.1"
 jetbrainsKotlinJvm = "2.0.0"
-uiTextGoogleFonts = "1.7.7"
-composeIcons = "1.1.1"
+uiTextGoogleFonts = "1.6.7"
+composeIcons = "1.1.0"
+paging = "3.3.5"
+room = "2.6.1"
+markwon = "4.6.2"
+prism4j = "2.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -41,6 +45,25 @@ koin-ksp-compiler = { module = "io.insert-koin:koin-ksp-compiler", version.ref =
 androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 
 composeIcons-feather = { module = "br.com.devsrsouza.compose.icons:feather", version.ref = "composeIcons" }
+
+androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
+
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+
+markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
+markwon-ext-latex = { module = "io.noties.markwon:ext-latex", version.ref = "markwon" }
+markwon-ext-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }
+markwon-ext-tables = { module = "io.noties.markwon:ext-tables", version.ref = "markwon" }
+markwon-ext-tasklist = { module = "io.noties.markwon:ext-tasklist", version.ref = "markwon" }
+markwon-linkify = { module = "io.noties.markwon:linkify", version.ref = "markwon" }
+markwon-html = { module = "io.noties.markwon:html", version.ref = "markwon" }
+markwon-syntax-highlight = { module = "io.noties.markwon:syntax-highlight", version.ref = "markwon" }
+
+prism4j = { module = "io.noties:prism4j", version.ref = "prism4j" }
+prism4j-bundler = { module = "io.noties:prism4j-bundler", version.ref = "prism4j" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

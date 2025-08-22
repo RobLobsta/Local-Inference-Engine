@@ -25,24 +25,40 @@ import io.shubham0204.smollmandroid.ui.screens.chat.ChatActivity
 import io.shubham0204.smollmandroid.ui.screens.model_download.DownloadModelActivity
 import org.koin.android.ext.android.inject
 
+import androidx.lifecycle.lifecycleScope
+import io.shubham0204.smollmandroid.llm.ModelsRepository
+import io.shubham0204.smollmandroid.ui.screens.chat.ChatActivity
+import io.shubham0204.smollmandroid.ui.screens.model_download.DownloadModelActivity
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
+
 class MainActivity : ComponentActivity() {
-    private val modelsRepository by inject<ModelsRepository>()
+
+    private val viewModel: MainViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        // Redirect user to the DownloadModelActivity if no models are available
-        // as the app requires at least one model to function
-        if (modelsRepository.getAvailableModelsList().isEmpty()) {
-            Intent(this, DownloadModelActivity::class.java).apply {
-                startActivity(this)
-                finish()
-            }
-        } else {
-            Intent(this, ChatActivity::class.java).apply {
-                startActivity(this)
-                finish()
+        lifecycleScope.launch {
+            viewModel.uiState.collect { state ->
+                when (state) {
+                    is MainUiState.GoToChat -> {
+                        Intent(this@MainActivity, ChatActivity::class.java).apply {
+                            startActivity(this)
+                            finish()
+                        }
+                    }
+                    is MainUiState.GoToModelDownload -> {
+                        Intent(this@MainActivity, DownloadModelActivity::class.java).apply {
+                            startActivity(this)
+                            finish()
+                        }
+                    }
+                    is MainUiState.Loading -> {
+                        // Show a loading spinner or a splash screen
+                    }
+                }
             }
         }
     }

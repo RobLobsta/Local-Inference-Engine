@@ -22,23 +22,14 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-class HFModels {
-    companion object {
-        private val client: HttpClient =
-            HttpClient(OkHttp) {
-                install(ContentNegotiation) {
-                    json(
-                        Json {
-                            ignoreUnknownKeys = true
-                        },
-                    )
-                }
-            }
+import org.koin.core.annotation.Single
 
-        fun getInfo(): HFModelInfo = HFModelInfo(client)
+@Single
+class HFModels(private val client: HttpClient) {
 
-        fun getTree(): HFModelTree = HFModelTree(client)
+    fun getInfo(): HFModelInfo = HFModelInfo(client)
 
-        fun getSearch(): HFModelSearch = HFModelSearch(client)
-    }
+    fun getTree(): HFModelTree = HFModelTree(client)
+
+    fun getSearch(): HFModelSearch = HFModelSearch(client)
 }

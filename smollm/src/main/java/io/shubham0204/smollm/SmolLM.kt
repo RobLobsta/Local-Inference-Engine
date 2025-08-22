@@ -128,6 +128,7 @@ class SmolLM {
         private fun supportsArm64V8a(): Boolean = Build.SUPPORTED_ABIS[0].equals("arm64-v8a")
     }
 
+    @Volatile
     private var nativePtr = 0L
 
     /**
@@ -163,6 +164,10 @@ class SmolLM {
      *                   This can improve loading times and reduce memory usage. (Default: true)
      * @property useMlock Whether to lock the model in memory. This can prevent the model from
      *                    being swapped out to disk, potentially improving performance. (Default: false)
+     * @property topK The number of top tokens to consider for sampling. (Default: 40)
+     * @property topP The cumulative probability for top-p sampling. (Default: 0.9f)
+     * @property xtcP The probability for XTC sampling. (Default: 0.0f)
+     * @property xtcT The temperature for XTC sampling. (Default: 1.0f)
      */
     data class InferenceParams(
         val minP: Float = 0.1f,
@@ -205,19 +210,11 @@ class SmolLM {
             ggufReader.getChatTemplate() ?: DefaultInferenceParams.chatTemplate
         nativePtr =
             loadModel(
-                modelPath,
-                params.minP,
-                params.temperature,
-                params.storeChats,
-                params.contextSize ?: modelContextSize,
-                params.chatTemplate ?: modelChatTemplate,
-                params.numThreads,
-                params.useMmap,
-                params.useMlock,
-                params.topP,
-                params.topK,
-                params.xtcP,
-                params.xtcT,
+                modelPath = modelPath,
+                params = params.copy(
+                    contextSize = params.contextSize ?: modelContextSize,
+                    chatTemplate = params.chatTemplate ?: modelChatTemplate
+                )
             )
     }
 
@@ -329,23 +326,12 @@ class SmolLM {
     }
 
     private fun verifyHandle() {
-        assert(nativePtr != 0L) { "Model is not loaded. Use SmolLM.create to load the model" }
+        check(nativePtr != 0L) { "Model is not loaded. Use SmolLM.load to load the model" }
     }
 
     private external fun loadModel(
         modelPath: String,
-        minP: Float,
-        temperature: Float,
-        storeChats: Boolean,
-        contextSize: Long,
-        chatTemplate: String,
-        nThreads: Int,
-        useMmap: Boolean,
-        useMlock: Boolean,
-        topP: Float,
-        topK: Int,
-        xtcP: Float,
-        xtcT: Float,
+        params: InferenceParams,
     ): Long
 
     private external fun addChatMessage(

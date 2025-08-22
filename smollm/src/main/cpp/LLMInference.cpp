@@ -21,9 +21,7 @@ std::string common_token_to_piece(
     bool          special = true);
 
 void
-LLMInference::loadModel(const char* model_path, float minP, float temperature, bool storeChats, long contextSize,
-                        const char* chatTemplate, int nThreads, bool useMmap, bool useMlock, float topP, int topK,
-                        float xtcP, float xtcT) {
+LLMInference::loadModel(const char* model_path, const InferenceParams& params) {
     LOGi("loading model with"
          "\n\tmodel_path = %s"
          "\n\tminP = %f"
@@ -38,12 +36,12 @@ LLMInference::loadModel(const char* model_path, float minP, float temperature, b
          "\n\ttopK = %i"
          "\n\txtcP = %f"
          "\n\txtcT = %f",
-         model_path, minP, temperature, (int)storeChats, (int)contextSize, chatTemplate, nThreads, useMmap, useMlock, topP, topK, xtcP, xtcT);
+         model_path, params.minP, params.temperature, (int)params.storeChats, (int)params.contextSize, params.chatTemplate, params.nThreads, params.useMmap, params.useMlock, params.topP, params.topK, params.xtcP, params.xtcT);
 
     // create an instance of llama_model
     llama_model_params model_params = llama_model_default_params();
-    model_params.use_mmap           = useMmap;
-    model_params.use_mlock          = useMlock;
+    model_params.use_mmap           = params.useMmap;
+    model_params.use_mlock          = params.useMlock;
     _model                          = llama_model_load_from_file(model_path, model_params);
 
     if (!_model) {
@@ -53,8 +51,8 @@ LLMInference::loadModel(const char* model_path, float minP, float temperature, b
 
     // create an instance of llama_context
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_ctx                = contextSize;
-    ctx_params.n_threads            = nThreads;
+    ctx_params.n_ctx                = params.contextSize;
+    ctx_params.n_threads            = params.nThreads;
     ctx_params.no_perf              = true; // disable performance metrics
     _ctx                            = llama_init_from_model(_model, ctx_params);
 
@@ -68,30 +66,30 @@ LLMInference::loadModel(const char* model_path, float minP, float temperature, b
     sampler_params.no_perf                    = true; // disable performance metrics
     _sampler                                  = llama_sampler_chain_init(sampler_params);
 
-    llama_sampler_chain_add(_sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(_sampler, llama_sampler_init_temp(params.temperature));
     llama_sampler_chain_add(_sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-    if (minP >= 0.01f) {
+    if (params.minP >= 0.01f) {
         // minP = 0.0 (disabled)
         // minP can be adjusted across 100 steps between [0.0,1.0], the smallest step being 0.01
-        llama_sampler_chain_add(_sampler, llama_sampler_init_min_p(minP, 1));
+        llama_sampler_chain_add(_sampler, llama_sampler_init_min_p(params.minP, 1));
     }
-    if (topK > 0) {
-        LOGi("Enabled top-k sampling with k=%d", topK);
-        llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(topK));
+    if (params.topK > 0) {
+        LOGi("Enabled top-k sampling with k=%d", params.topK);
+        llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(params.topK));
     }
-    if (topP <= 0.99) {
-        LOGi("Enabled top-p sampling with p=%f", topP);
-        llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(topP, 1));
+    if (params.topP <= 0.99) {
+        LOGi("Enabled top-p sampling with p=%f", params.topP);
+        llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(params.topP, 1));
     }
-    if (xtcT <= 0.99 || xtcP >= 0.01) {
-        LOGi("Enabled XTC sampling with p=%f, t=%f", xtcP, xtcT);
-        llama_sampler_chain_add(_sampler, llama_sampler_init_xtc(xtcP, xtcT, 1, LLAMA_DEFAULT_SEED));
+    if (params.xtcT <= 0.99 || params.xtcP >= 0.01) {
+        LOGi("Enabled XTC sampling with p=%f, t=%f", params.xtcP, params.xtcT);
+        llama_sampler_chain_add(_sampler, llama_sampler_init_xtc(params.xtcP, params.xtcT, 1, LLAMA_DEFAULT_SEED));
     }
 
     _formattedMessages = std::vector<char>(llama_n_ctx(_ctx));
     _messages.clear();
-    _chatTemplate     = strdup(chatTemplate);
-    this->_storeChats = storeChats;
+    _chatTemplate     = strdup(params.chatTemplate);
+    this->_storeChats = params.storeChats;
 }
 
 void
@@ -200,7 +198,7 @@ LLMInference::completionLoop() {
     if (llama_vocab_is_eog(llama_model_get_vocab(_model), _currToken)) {
         addChatMessage(strdup(_response.data()), "assistant");
         _response.clear();
-        return "[EOG]";
+        return "";
     }
     std::string piece = common_token_to_piece(_ctx, _currToken, true);
     LOGi("common_token_to_piece: %s", piece.c_str());
@@ -247,7 +245,7 @@ LLMInference::~LLMInference() {
         free(const_cast<char*>(message.content));
     }
     free(const_cast<char*>(_chatTemplate));
-    //llama_sampler_free(_sampler);
+    llama_sampler_free(_sampler);
     llama_free(_ctx);
     llama_model_free(_model);
 }

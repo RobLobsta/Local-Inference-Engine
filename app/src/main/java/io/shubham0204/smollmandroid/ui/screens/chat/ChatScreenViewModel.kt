@@ -79,12 +79,35 @@ sealed class ChatScreenUIEvent {
     }
 }
 
+data class ChatScreenUiState(
+    val currChat: Chat? = null,
+    val isGeneratingResponse: Boolean = false,
+    val modelLoadingState: ChatScreenViewModel.ModelLoadingState = ChatScreenViewModel.ModelLoadingState.NOT_LOADED,
+    val partialResponse: String = "",
+    val uiEvent: ChatScreenUIEvent = ChatScreenUIEvent.Idle,
+    val showChangeFolderDialog: Boolean = false,
+    val showSelectModelListDialog: Boolean = false,
+    val showMoreOptionsPopup: Boolean = false,
+    val showTaskListBottomList: Boolean = false,
+    val showRAMUsageLabel: Boolean = false,
+    val errorDialog: ErrorDialog? = null
+)
+
+data class ErrorDialog(
+    val title: String,
+    val message: String,
+    val positiveButtonText: String,
+    val onPositiveButtonClick: () -> Unit,
+    val negativeButtonText: String?,
+    val onNegativeButtonClick: (() -> Unit)?
+)
+
 @KoinViewModel
 class ChatScreenViewModel(
-    val context: Context,
-    val appDB: AppDB,
-    val modelsRepository: ModelsRepository,
-    val smolLMManager: SmolLMManager,
+    private val modelsRepository: ModelsRepository,
+    private val smolLMManager: SmolLMManager,
+    private val appDB: AppDB,
+    val markwon: Markwon
 ) : ViewModel() {
     enum class ModelLoadingState {
         NOT_LOADED, // model loading not started
@@ -93,36 +116,8 @@ class ChatScreenViewModel(
         FAILURE, // model loading failed
     }
 
-    // UI state variables
-    private val _currChatState = MutableStateFlow<Chat?>(null)
-    val currChatState: StateFlow<Chat?> = _currChatState
-
-    private val _isGeneratingResponse = MutableStateFlow(false)
-    val isGeneratingResponse: StateFlow<Boolean> = _isGeneratingResponse
-
-    private val _modelLoadState = MutableStateFlow(ModelLoadingState.NOT_LOADED)
-    val modelLoadState: StateFlow<ModelLoadingState> = _modelLoadState
-
-    private val _partialResponse = MutableStateFlow("")
-    val partialResponse: StateFlow<String> = _partialResponse
-
-    private val _uiEvent = MutableStateFlow(ChatScreenUIEvent.Idle)
-    val uiEvent: StateFlow<ChatScreenUIEvent> = _uiEvent
-
-    private val _showChangeFolderDialogState = MutableStateFlow(false)
-    val showChangeFolderDialogState: StateFlow<Boolean> = _showChangeFolderDialogState
-
-    private val _showSelectModelListDialogState = MutableStateFlow(false)
-    val showSelectModelListDialogState: StateFlow<Boolean> = _showSelectModelListDialogState
-
-    private val _showMoreOptionsPopupState = MutableStateFlow(false)
-    val showMoreOptionsPopupState: StateFlow<Boolean> = _showMoreOptionsPopupState
-
-    private val _showTaskListBottomListState = MutableStateFlow(false)
-    val showTaskListBottomListState: StateFlow<Boolean> = _showTaskListBottomListState
-
-    private val _showRAMUsageLabel = MutableStateFlow(false)
-    val showRAMUsageLabel: StateFlow<Boolean> = _showRAMUsageLabel
+    private val _uiState = MutableStateFlow(ChatScreenUiState())
+    val uiState: StateFlow<ChatScreenUiState> = _uiState
 
     // Used to pre-set a value in the query text-field of the chat screen
     // It is set when a query comes from a 'share-text' intent in ChatActivity
@@ -133,55 +128,12 @@ class ChatScreenViewModel(
     private val findThinkTagRegex = Regex("<think>(.*?)</think>", RegexOption.DOT_MATCHES_ALL)
     var responseGenerationsSpeed: Float? = null
     var responseGenerationTimeSecs: Int? = null
-    val markwon: Markwon
-
-    private var activityManager: ActivityManager
 
     init {
-        _currChatState.value = appDB.loadDefaultChat()
-        activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val prism4j = Prism4j(PrismGrammarLocator())
-        markwon =
-            Markwon
-                .builder(context)
-                .usePlugin(CorePlugin.create())
-                .usePlugin(SyntaxHighlightPlugin.create(prism4j, Prism4jThemeDarkula.create()))
-                .usePlugin(MarkwonInlineParserPlugin.create())
-                .usePlugin(
-                    JLatexMathPlugin.create(
-                        12f,
-                        JLatexMathPlugin.BuilderConfigure {
-                            it.inlinesEnabled(true)
-                            it.blocksEnabled(true)
-                        },
-                    ),
-                ).usePlugin(LinkifyPlugin.create(Linkify.WEB_URLS))
-                .usePlugin(HtmlPlugin.create())
-                .usePlugin(
-                    object : AbstractMarkwonPlugin() {
-                        override fun configureTheme(builder: MarkwonTheme.Builder) {
-                            val jetbrainsMonoFont =
-                                ResourcesCompat.getFont(context, R.font.jetbrains_mono)!!
-                            builder
-                                .codeBlockTypeface(
-                                    ResourcesCompat.getFont(context, R.font.jetbrains_mono)!!,
-                                ).codeBlockTextColor(Color.WHITE)
-                                .codeBlockTextSize(spToPx(10f))
-                                .codeBlockBackgroundColor(Color.BLACK)
-                                .codeTypeface(jetbrainsMonoFont)
-                                .codeTextSize(spToPx(10f))
-                                .codeTextColor(Color.WHITE)
-                                .codeBackgroundColor(Color.BLACK)
-                                .isLinkUnderlined(true)
-                        }
-                    },
-                ).build()
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(currChat = appDB.loadDefaultChat())
+        }
     }
-
-    private fun spToPx(sp: Float): Int =
-        TypedValue
-            .applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.resources.displayMetrics)
-            .toInt()
 
     fun getChats(): Flow<List<Chat>> = appDB.getChats()
 
@@ -195,113 +147,136 @@ class ChatScreenViewModel(
         modelId: Long,
         chatTemplate: String,
     ) {
-        _currChatState.value =
-            _currChatState.value?.copy(llmModelId = modelId, chatTemplate = chatTemplate)
-        appDB.updateChat(_currChatState.value!!)
+        viewModelScope.launch {
+            val updatedChat = _uiState.value.currChat?.copy(llmModelId = modelId, chatTemplate = chatTemplate)
+            if (updatedChat != null) {
+                appDB.updateChat(updatedChat)
+                _uiState.value = _uiState.value.copy(currChat = updatedChat)
+            }
+        }
     }
 
     fun updateChatFolder(folderId: Long) {
-        // TODO: Modifying currChatState triggers a model reload which is not
-        //       needed when folder is changed.
-        // _currChatState.value = _currChatState.value?.copy(folderId = folderId)
-        appDB.updateChat(_currChatState.value!!.copy(folderId = folderId))
+        viewModelScope.launch {
+            val updatedChat = _uiState.value.currChat?.copy(folderId = folderId)
+            if (updatedChat != null) {
+                appDB.updateChat(updatedChat)
+            }
+        }
     }
 
     fun updateChat(chat: Chat) {
-        _currChatState.value = chat
-        appDB.updateChat(chat)
-        loadModel()
+        viewModelScope.launch {
+            appDB.updateChat(chat)
+            _uiState.value = _uiState.value.copy(currChat = chat)
+            loadModel()
+        }
     }
 
     fun deleteMessage(messageId: Long) {
-        appDB.deleteMessage(messageId)
+        viewModelScope.launch {
+            appDB.deleteMessage(messageId)
+        }
     }
 
     fun sendUserQuery(
         query: String,
         addMessageToDB: Boolean = true,
     ) {
-        _currChatState.value?.let { chat ->
-            // Update the 'dateUsed' attribute of the current Chat instance
-            // when a query is sent by the user
-            chat.dateUsed = Date()
-            appDB.updateChat(chat)
+        viewModelScope.launch {
+            _uiState.value.currChat?.let { chat ->
+                // Update the 'dateUsed' attribute of the current Chat instance
+                // when a query is sent by the user
+                val updatedChat = chat.copy(dateUsed = Date())
+                appDB.updateChat(updatedChat)
 
-            if (chat.isTask) {
-                // If the chat is a 'task', delete all existing messages
-                // to maintain the 'stateless' nature of the task
-                appDB.deleteMessages(chat.id)
-            }
+                if (chat.isTask) {
+                    // If the chat is a 'task', delete all existing messages
+                    // to maintain the 'stateless' nature of the task
+                    appDB.deleteMessages(chat.id)
+                }
 
-            if (addMessageToDB) {
-                appDB.addUserMessage(chat.id, query)
+                if (addMessageToDB) {
+                    appDB.addUserMessage(chat.id, query)
+                }
+                _uiState.value = _uiState.value.copy(isGeneratingResponse = true, partialResponse = "")
+                smolLMManager.getResponse(
+                    query,
+                    responseTransform = {
+                        // Replace <think> tags with <blockquote> tags
+                        // to get a neat Markdown rendering
+                        findThinkTagRegex.replace(it) { matchResult ->
+                            "<blockquote><i><h6>${matchResult.groupValues[1].trim()}</i></h6></blockquote>"
+                        }
+                    },
+                    onPartialResponseGenerated = {
+                        _uiState.value = _uiState.value.copy(partialResponse = it)
+                    },
+                    onSuccess = { response ->
+                        _uiState.value = _uiState.value.copy(isGeneratingResponse = false)
+                        responseGenerationsSpeed = response.generationSpeed
+                        responseGenerationTimeSecs = response.generationTimeSecs
+                        viewModelScope.launch {
+                            appDB.updateChat(updatedChat.copy(contextSizeConsumed = response.contextLengthUsed))
+                        }
+                    },
+                    onCancelled = {
+                        // ignore CancellationException, as it was called because
+                        // `responseGenerationJob` was cancelled in the `stopGeneration` method
+                    },
+                    onError = { exception ->
+                        _uiState.value = _uiState.value.copy(
+                            isGeneratingResponse = false,
+                            errorDialog = ErrorDialog(
+                                title = "An error occurred",
+                                message = "The app is unable to process the query. The error message is: ${exception.message}",
+                                positiveButtonText = "Change model",
+                                onPositiveButtonClick = {
+                                    _uiState.value = _uiState.value.copy(showSelectModelListDialog = true)
+                                },
+                                negativeButtonText = null,
+                                onNegativeButtonClick = null
+                            )
+                        )
+                    },
+                )
             }
-            _isGeneratingResponse.value = true
-            _partialResponse.value = ""
-            smolLMManager.getResponse(
-                query,
-                responseTransform = {
-                    // Replace <think> tags with <blockquote> tags
-                    // to get a neat Markdown rendering
-                    findThinkTagRegex.replace(it) { matchResult ->
-                        "<blockquote><i><h6>${matchResult.groupValues[1].trim()}</i></h6></blockquote>"
-                    }
-                },
-                onPartialResponseGenerated = {
-                    _partialResponse.value = it
-                },
-                onSuccess = { response ->
-                    _isGeneratingResponse.value = false
-                    responseGenerationsSpeed = response.generationSpeed
-                    responseGenerationTimeSecs = response.generationTimeSecs
-                    appDB.updateChat(chat.copy(contextSizeConsumed = response.contextLengthUsed))
-                },
-                onCancelled = {
-                    // ignore CancellationException, as it was called because
-                    // `responseGenerationJob` was cancelled in the `stopGeneration` method
-                },
-                onError = { exception ->
-                    _isGeneratingResponse.value = false
-                    createAlertDialog(
-                        dialogTitle = "An error occurred",
-                        dialogText = "The app is unable to process the query. The error message is: ${exception.message}",
-                        dialogPositiveButtonText = "Change model",
-                        onPositiveButtonClick = {},
-                        dialogNegativeButtonText = "",
-                        onNegativeButtonClick = {},
-                    )
-                },
-            )
         }
     }
 
     fun stopGeneration() {
-        _isGeneratingResponse.value = false
-        _partialResponse.value = ""
+        _uiState.value = _uiState.value.copy(isGeneratingResponse = false, partialResponse = "")
         smolLMManager.stopResponseGeneration()
     }
 
     fun switchChat(chat: Chat) {
         stopGeneration()
-        _currChatState.value = chat
+        _uiState.value = _uiState.value.copy(currChat = chat)
     }
 
     fun deleteChat(chat: Chat) {
-        stopGeneration()
-        appDB.deleteChat(chat)
-        appDB.deleteMessages(chat.id)
-        _currChatState.value = null
+        viewModelScope.launch {
+            stopGeneration()
+            appDB.deleteChat(chat)
+            appDB.deleteMessages(chat.id)
+            _uiState.value = _uiState.value.copy(currChat = null)
+        }
     }
 
     fun deleteChatMessages(chat: Chat) {
-        stopGeneration()
-        appDB.deleteMessages(chat.id)
+        viewModelScope.launch {
+            stopGeneration()
+            appDB.deleteMessages(chat.id)
+        }
     }
 
     fun deleteModel(modelId: Long) {
-        modelsRepository.deleteModel(modelId)
-        if (_currChatState.value?.llmModelId == modelId) {
-            _currChatState.value = _currChatState.value?.copy(llmModelId = -1)
+        viewModelScope.launch {
+            modelsRepository.deleteModel(modelId)
+            if (_uiState.value.currChat?.llmModelId == modelId) {
+                _uiState.value =
+                    _uiState.value.copy(currChat = _uiState.value.currChat?.copy(llmModelId = -1))
+            }
         }
     }
 
@@ -311,52 +286,55 @@ class ChatScreenViewModel(
      * read the system prompt and user messages from the database and add them to the model.
      */
     fun loadModel(onComplete: (ModelLoadingState) -> Unit = {}) {
-        _currChatState.value?.let { chat ->
-            val model = modelsRepository.getModelFromId(chat.llmModelId)
-            if (chat.llmModelId == -1L || model == null) {
-                _showSelectModelListDialogState.value = true
-            } else {
-                _modelLoadState.value = ModelLoadingState.IN_PROGRESS
-                smolLMManager.load(
-                    chat,
-                    model.path,
-                    SmolLM.InferenceParams(
-                        chat.minP,
-                        chat.temperature,
-                        !chat.isTask,
-                        chat.contextSize.toLong(),
-                        chat.chatTemplate,
-                        chat.nThreads,
-                        chat.useMmap,
-                        chat.useMlock,
-                        chat.topP,
-                        chat.topK,
-                        chat.xtcP,
-                        chat.xtcT,
-                    ),
-                    onError = { e ->
-                        _modelLoadState.value = ModelLoadingState.FAILURE
-                        onComplete(ModelLoadingState.FAILURE)
-                        createAlertDialog(
-                            dialogTitle = context.getString(R.string.dialog_err_title),
-                            dialogText = context.getString(R.string.dialog_err_text, e.message),
-                            dialogPositiveButtonText = context.getString(R.string.dialog_err_change_model),
-                            onPositiveButtonClick = {
-                                onEvent(
-                                    ChatScreenUIEvent.DialogEvents.ToggleSelectModelListDialog(
-                                        visible = true,
-                                    ),
+        viewModelScope.launch {
+            _uiState.value.currChat?.let { chat ->
+                val model = modelsRepository.getModelFromId(chat.llmModelId)
+                if (chat.llmModelId == -1L || model == null) {
+                    _uiState.value = _uiState.value.copy(showSelectModelListDialog = true)
+                } else {
+                    _uiState.value = _uiState.value.copy(modelLoadingState = ModelLoadingState.IN_PROGRESS)
+                    smolLMManager.load(
+                        chat,
+                        model.path,
+                        SmolLM.InferenceParams(
+                            chat.minP,
+                            chat.temperature,
+                            !chat.isTask,
+                            chat.contextSize.toLong(),
+                            chat.chatTemplate,
+                            chat.nThreads,
+                            chat.useMmap,
+                            chat.useMlock,
+                            chat.topP,
+                            chat.topK,
+                            chat.xtcP,
+                            chat.xtcT,
+                        ),
+                        onError = { e ->
+                            _uiState.value = _uiState.value.copy(
+                                modelLoadingState = ModelLoadingState.FAILURE,
+                                errorDialog = ErrorDialog(
+                                    title = "Error loading model",
+                                    message = "Failed to load the model. Error: ${e.message}",
+                                    positiveButtonText = "Change model",
+                                    onPositiveButtonClick = {
+                                        _uiState.value =
+                                            _uiState.value.copy(showSelectModelListDialog = true)
+                                    },
+                                    negativeButtonText = "Close",
+                                    onNegativeButtonClick = {
+                                        _uiState.value = _uiState.value.copy(errorDialog = null)
+                                    }
                                 )
-                            },
-                            dialogNegativeButtonText = context.getString(R.string.dialog_err_close),
-                            onNegativeButtonClick = {},
-                        )
-                    },
-                    onSuccess = {
-                        _modelLoadState.value = ModelLoadingState.SUCCESS
-                        onComplete(ModelLoadingState.SUCCESS)
-                    },
-                )
+                            )
+                            onComplete(ModelLoadingState.FAILURE)
+                        },
+                        onSuccess = {
+                            _uiState.value = _uiState.value.copy(modelLoadingState = ModelLoadingState.SUCCESS)
+                            onComplete(ModelLoadingState.SUCCESS)
+                        },
+                    )
+                }
             }
         }
     }
@@ -368,7 +346,7 @@ class ChatScreenViewModel(
     fun unloadModel(): Boolean =
         if (!smolLMManager.isInferenceOn) {
             smolLMManager.close()
-            _modelLoadState.value = ModelLoadingState.NOT_LOADED
+            _uiState.value = _uiState.value.copy(modelLoadingState = ModelLoadingState.NOT_LOADED)
             true
         } else {
             false
@@ -379,7 +357,8 @@ class ChatScreenViewModel(
      * This method returns the memory consumed (in GBs) and the total
      * memory available on the device (in GBs)
      */
-    fun getCurrentMemoryUsage(): Pair<Float, Float> {
+    fun getCurrentMemoryUsage(context: Context): Pair<Float, Float> {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memoryInfo = MemoryInfo()
         activityManager.getMemoryInfo(memoryInfo)
         val totalMemory = (memoryInfo.totalMem) / 1024.0.pow(3.0)
@@ -388,20 +367,23 @@ class ChatScreenViewModel(
     }
 
     @SuppressLint("StringFormatMatches")
-    fun showContextLengthUsageDialog() {
-        _currChatState.value?.let { chat ->
-            createAlertDialog(
-                dialogTitle = context.getString(R.string.dialog_ctx_usage_title),
-                dialogText =
-                    context.getString(
+    fun showContextLengthUsageDialog(context: Context) {
+        _uiState.value.currChat?.let { chat ->
+            _uiState.value = _uiState.value.copy(
+                errorDialog = ErrorDialog(
+                    title = context.getString(R.string.dialog_ctx_usage_title),
+                    message = context.getString(
                         R.string.dialog_ctx_usage_text,
                         chat.contextSizeConsumed,
                         chat.contextSize,
                     ),
-                dialogPositiveButtonText = context.getString(R.string.dialog_ctx_usage_close),
-                onPositiveButtonClick = {},
-                dialogNegativeButtonText = null,
-                onNegativeButtonClick = null,
+                    positiveButtonText = context.getString(R.string.dialog_ctx_usage_close),
+                    onPositiveButtonClick = {
+                        _uiState.value = _uiState.value.copy(errorDialog = null)
+                    },
+                    negativeButtonText = null,
+                    onNegativeButtonClick = null
+                )
             )
         }
     }
@@ -409,19 +391,19 @@ class ChatScreenViewModel(
     fun onEvent(event: ChatScreenUIEvent) {
         when (event) {
             is ChatScreenUIEvent.DialogEvents.ToggleSelectModelListDialog -> {
-                _showSelectModelListDialogState.value = event.visible
+                _uiState.value = _uiState.value.copy(showSelectModelListDialog = event.visible)
             }
 
             is ChatScreenUIEvent.DialogEvents.ToggleMoreOptionsPopup -> {
-                _showMoreOptionsPopupState.value = event.visible
+                _uiState.value = _uiState.value.copy(showMoreOptionsPopup = event.visible)
             }
 
             is ChatScreenUIEvent.DialogEvents.ToggleTaskListBottomList -> {
-                _showTaskListBottomListState.value = event.visible
+                _uiState.value = _uiState.value.copy(showTaskListBottomList = event.visible)
             }
 
             is ChatScreenUIEvent.DialogEvents.ToggleChangeFolderDialog -> {
-                _showChangeFolderDialogState.value = event.visible
+                _uiState.value = _uiState.value.copy(showChangeFolderDialog = event.visible)
             }
 
             else -> {}
@@ -429,6 +411,6 @@ class ChatScreenViewModel(
     }
 
     fun toggleRAMUsageLabelVisibility() {
-        _showRAMUsageLabel.value = !_showRAMUsageLabel.value
+        _uiState.value = _uiState.value.copy(showRAMUsageLabel = !_uiState.value.showRAMUsageLabel)
     }
 }

@@ -28,7 +28,8 @@ class ModelsRepository(
     private val context: Context,
     private val appDB: AppDB,
 ) {
-    init {
+
+    suspend fun cleanupOrphanedModels() {
         for (model in appDB.getModelsList()) {
             if (!File(model.path).exists()) {
                 deleteModel(model.id)
@@ -36,24 +37,20 @@ class ModelsRepository(
         }
     }
 
-    companion object {
-        fun checkIfModelsDownloaded(context: Context): Boolean {
-            context.filesDir.listFiles()?.forEach { file ->
-                if (file.isFile && file.name.endsWith(".gguf")) {
-                    return true
-                }
+    suspend fun checkIfModelsDownloaded(): Boolean {
+        context.filesDir.listFiles()?.forEach { file ->
+            if (file.isFile && file.name.endsWith(".gguf")) {
+                return true
             }
-            return false
         }
+        return false
     }
 
-    fun getModelFromId(id: Long): LLMModel? = appDB.getModel(id)
+    suspend fun getModelFromId(id: Long): LLMModel? = appDB.getModel(id)
 
     fun getAvailableModels(): Flow<List<LLMModel>> = appDB.getModels()
 
-    fun getAvailableModelsList(): List<LLMModel> = appDB.getModelsList()
-
-    fun deleteModel(id: Long) {
+    suspend fun deleteModel(id: Long) {
         appDB.getModel(id)?.let {
             File(it.path).delete()
             appDB.deleteModel(it.id)

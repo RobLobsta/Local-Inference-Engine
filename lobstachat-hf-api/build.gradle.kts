@@ -1,18 +1,14 @@
 plugins {
-    id("java-library")
     alias(libs.plugins.jetbrains.kotlin.jvm)
     kotlin("plugin.serialization")
 }
 
-val ktorVersion = "3.0.2"
-val kotlinSerializationVersion = "1.7.3"
-
 dependencies {
-    implementation("io.ktor:ktor-client-core:$ktorVersion")
-    implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
-    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(kotlin("test"))
 }
 

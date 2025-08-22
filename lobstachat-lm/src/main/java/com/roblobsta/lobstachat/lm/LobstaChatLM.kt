@@ -250,6 +250,19 @@ class LobstaChatLM {
     }
 
     /**
+     * Edits a message in the chat history.
+     *
+     * @param index The index of the message to edit.
+     * @param message The new message content.
+     * @throws IllegalStateException if the model is not loaded.
+     */
+    fun editMessage(index: Int, message: String) {
+        verifyHandle()
+        // TODO: Implement this in the JNI layer
+        // editMessage(nativePtr, index, message)
+    }
+
+    /**
      * Returns the rate (in tokens per second) at which the
      * LLM generated its last response via `getResponse()`
      */
@@ -315,7 +328,7 @@ class LobstaChatLM {
 
     /**
      * Unloads the LLM model and releases resources.
-     * This method should be called when the SmolLM instance is no longer needed
+     * This method should be called when the LobstaLM instance is no longer needed
      * to prevent memory leaks.
      */
     fun close() {
@@ -354,4 +367,7 @@ class LobstaChatLM {
     private external fun completionLoop(modelPtr: Long): String
 
     private external fun stopCompletion(modelPtr: Long)
+
+    // TODO: Implement this in the JNI layer
+    // private external fun editMessage(modelPtr: Long, index: Int, message: String)
 }

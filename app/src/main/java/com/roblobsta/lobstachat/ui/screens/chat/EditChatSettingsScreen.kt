@@ -385,7 +385,7 @@ fun EditChatSettingsScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Number of Threads",
+                        text = stringResource(R.string.n_threads_label),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
@@ -412,11 +412,11 @@ fun EditChatSettingsScreen(
                         )
                         Column {
                             Text(
-                                text = "Use mmap",
+                                text = stringResource(R.string.use_mmap_label),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "Disable memory mapping (mmap) for potentially fewer pageouts and better performance on low-memory systems, but with slower load times and a risk of preventing loading large models.",
+                                text = stringResource(R.string.use_mmap_description),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
@@ -430,11 +430,11 @@ fun EditChatSettingsScreen(
                         )
                         Column {
                             Text(
-                                text = "Use mlock",
+                                text = stringResource(R.string.use_mlock_label),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "Keep the model loaded in RAM for faster performance, but uses more memory and may load slower.",
+                                text = stringResource(R.string.use_mlock_description),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }

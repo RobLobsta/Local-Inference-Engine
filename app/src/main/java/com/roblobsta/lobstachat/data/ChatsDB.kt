@@ -29,7 +29,9 @@ import java.util.Date
 private const val LOGTAG = "[ChatDB-Kt]"
 private val LOGD: (String) -> Unit = { Log.d(LOGTAG, it) }
 
-@Entity(tableName = "Chat")
+import androidx.room.Index
+
+@Entity(tableName = "Chat", indices = [Index(value = ["dateUsed"]), Index(value = ["folderId"])])
 data class Chat(
     @PrimaryKey(autoGenerate = true) var id: Long = 0,
     /**
@@ -56,18 +58,8 @@ data class Chat(
      * A model with this ID is loaded when the user selects this chat.
      */
     var llmModelId: Long = -1L,
-    /**
-     * LLM inference parameters that are used for this chat.
-     */
-    var minP: Float = 0.1f,
-    var temperature: Float = 0.8f,
-    var nThreads: Int = 4,
-    var useMmap: Boolean = true,
-    var useMlock: Boolean = false,
-    var topK: Int = 40,
-    var topP: Float = 0.9f,
-    var xtcP: Float = 0.0f,
-    var xtcT: Float = 1.0f,
+    @Embedded
+    var inferenceParams: InferenceParams = InferenceParams(),
     /**
      * The maximum number of tokens that can be used as context to the model
      * This is editable by users in the EditChatSettingsScreen.kt.
@@ -126,7 +118,7 @@ interface ChatsDao {
     fun getChatsForFolder(folderId: Long): Flow<List<Chat>>
 
     @Query("UPDATE Chat SET folderId = :newFolderId WHERE folderId = :oldFolderId")
-    fun updateFolderIds(
+    suspend fun updateFolderIds(
         oldFolderId: Long,
         newFolderId: Long,
     )

@@ -17,28 +17,24 @@
 package com.roblobsta.lobstachat.ui.screens.model_download
 
 import android.app.DownloadManager
-import android.content.Context
+import android.app.Application
+import android.app.DownloadManager
 import android.net.Uri
 import android.os.Environment
 import android.provider.OpenableColumns
-import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.paging.PagingData
-import com.roblobsta.lobstachat.hf_api.HFModelInfo
-import com.roblobsta.lobstachat.hf_api.HFModelSearch
-import com.roblobsta.lobstachat.hf_api.HFModelTree
-import com.roblobsta.lobstachat.lm.GGUFReader
-import com.roblobsta.lobstachat.lm.SmolLM
 import com.roblobsta.lobstachat.R
 import com.roblobsta.lobstachat.data.AppDB
 import com.roblobsta.lobstachat.data.HFModelsAPI
 import com.roblobsta.lobstachat.data.LLMModel
-import com.roblobsta.lobstachat.ui.components.hideProgressDialog
-import com.roblobsta.lobstachat.ui.components.setProgressDialogText
-import com.roblobsta.lobstachat.ui.components.setProgressDialogTitle
-import com.roblobsta.lobstachat.ui.components.showProgressDialog
+import com.roblobsta.lobstachat.hf_api.HFModelInfo
+import com.roblobsta.lobstachat.hf_api.HFModelSearch
+import com.roblobsta.lobstachat.hf_api.HFModelTree
+import com.roblobsta.lobstachat.lm.GGUFReader
+import com.roblobsta.lobstachat.lm.LobstaLM
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -51,15 +47,19 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Paths
 
+sealed class CopyFileState {
+    data object Idle : CopyFileState()
+    data object InProgress : CopyFileState()
+    data object Complete : CopyFileState()
+    data class Error(val message: String) : CopyFileState()
+}
+
 @Single
 class DownloadModelsViewModel(
-    val context: Context,
-    val appDB: AppDB,
-    val hfModelsAPI: HFModelsAPI,
+    private val application: Application,
+    private val appDB: AppDB,
+    private val hfModelsAPI: HFModelsAPI,
 ) : ViewModel() {
-    // default context size for the LLM
-    private val defaultContextSize = 2048
-
     private val _modelInfoAndTree =
         MutableStateFlow<Pair<HFModelInfo.ModelInfo, List<HFModelTree.HFModelFile>>?>(null)
     val modelInfoAndTree: StateFlow<Pair<HFModelInfo.ModelInfo, List<HFModelTree.HFModelFile>>?> =
@@ -68,10 +68,11 @@ class DownloadModelsViewModel(
     val selectedModelState = mutableStateOf<LLMModel?>(null)
     val modelUrlState = mutableStateOf("")
 
-    var viewModelId: String? = null
+    private val _copyFileState = MutableStateFlow<CopyFileState>(CopyFileState.Idle)
+    val copyFileState: StateFlow<CopyFileState> = _copyFileState
 
     private val downloadManager =
-        context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        application.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
     fun downloadModel() {
         // Downloading files in Android with the DownloadManager API
@@ -83,7 +84,7 @@ class DownloadModelsViewModel(
                 .Request(modelUrl.toUri())
                 .setTitle(fileName)
                 .setDescription(
-                    "The GGUF model will be downloaded on your device for use with SmolChat.",
+                    application.getString(R.string.download_model_description),
                 ).setMimeType("application/octet-stream")
                 .setAllowedNetworkTypes(
                     DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE,
@@ -102,49 +103,46 @@ class DownloadModelsViewModel(
      */
     fun copyModelFile(
         uri: Uri,
-        onComplete: () -> Unit,
     ) {
         var fileName = ""
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        application.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             cursor.moveToFirst()
             fileName = cursor.getString(nameIndex)
         }
         if (fileName.isNotEmpty()) {
-            setProgressDialogTitle(context.getString(R.string.dialog_progress_copy_model_title))
-            setProgressDialogText(
-                context.getString(R.string.dialog_progress_copy_model_text, fileName),
-            )
-            showProgressDialog()
+            _copyFileState.value = CopyFileState.InProgress
             CoroutineScope(Dispatchers.IO).launch {
-                context.contentResolver.openInputStream(uri).use { inputStream ->
-                    FileOutputStream(File(context.filesDir, fileName)).use { outputStream ->
-                        inputStream?.copyTo(outputStream)
+                try {
+                    application.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        FileOutputStream(File(application.filesDir, fileName)).use { outputStream ->
+                            val buffer = ByteArray(1024)
+                            var bytesRead: Int
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                outputStream.write(buffer, 0, bytesRead)
+                            }
+                        }
                     }
-                }
-                val ggufReader = GGUFReader()
-                ggufReader.load(File(context.filesDir, fileName).absolutePath)
-                val contextSize = ggufReader.getContextSize() ?: SmolLM.DefaultInferenceParams.contextSize
-                val chatTemplate = ggufReader.getChatTemplate() ?: SmolLM.DefaultInferenceParams.chatTemplate
-                appDB.addModel(
-                    fileName,
-                    "",
-                    Paths.get(context.filesDir.absolutePath, fileName).toString(),
-                    contextSize.toInt(),
-                    chatTemplate,
-                )
-                withContext(Dispatchers.Main) {
-                    hideProgressDialog()
-                    onComplete()
+                    val ggufReader = GGUFReader()
+                    ggufReader.load(File(application.filesDir, fileName).absolutePath)
+                    val contextSize = ggufReader.getContextSize() ?: LobstaLM.DefaultInferenceParams.contextSize
+                    val chatTemplate = ggufReader.getChatTemplate() ?: LobstaLM.DefaultInferenceParams.chatTemplate
+                    appDB.addModel(
+                        fileName,
+                        "",
+                        Paths.get(application.filesDir.absolutePath, fileName).toString(),
+                        contextSize.toInt(),
+                        chatTemplate,
+                    )
+                    withContext(Dispatchers.Main) {
+                        _copyFileState.value = CopyFileState.Complete
+                    }
+                } catch (e: Exception) {
+                    _copyFileState.value = CopyFileState.Error(e.message ?: "Unknown error")
                 }
             }
         } else {
-            Toast
-                .makeText(
-                    context,
-                    context.getString(R.string.toast_invalid_file),
-                    Toast.LENGTH_SHORT,
-                ).show()
+            _copyFileState.value = CopyFileState.Error(application.getString(R.string.toast_invalid_file))
         }
     }
 

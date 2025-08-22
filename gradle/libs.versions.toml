@@ -18,6 +18,11 @@ paging = "3.3.5"
 room = "2.6.1"
 markwon = "4.6.2"
 prism4j = "2.0.0"
+ktor = "3.0.2"
+kotlinSerialization = "1.7.3"
+kotlinxCoroutinesTest = "1.9.0"
+androidxTestRunner = "1.6.2"
+ndk = "27.2.12479018"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +69,12 @@ markwon-syntax-highlight = { module = "io.noties.markwon:syntax-highlight", vers
 
 prism4j = { module = "io.noties:prism4j", version.ref = "prism4j" }
 prism4j-bundler = { module = "io.noties:prism4j-bundler", version.ref = "prism4j" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

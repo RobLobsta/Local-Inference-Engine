@@ -274,7 +274,7 @@ class DownloadModelActivity : ComponentActivity() {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "OR",
+                text = stringResource(R.string.or_separator),
                 style = MaterialTheme.typography.headlineSmall,
             )
             Spacer(modifier = Modifier.height(16.dp))

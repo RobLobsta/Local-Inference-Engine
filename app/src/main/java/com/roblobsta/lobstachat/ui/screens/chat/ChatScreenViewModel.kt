@@ -44,7 +44,7 @@ import com.roblobsta.lobstachat.data.Chat
 import com.roblobsta.lobstachat.data.ChatMessage
 import com.roblobsta.lobstachat.data.Folder
 import com.roblobsta.lobstachat.llm.ModelsRepository
-import com.roblobsta.lobstachat.llm.SmolLMManager
+import com.roblobsta.lobstachat.llm.LobstaLMManager
 import com.roblobsta.lobstachat.prism4j.PrismGrammarLocator
 import com.roblobsta.lobstachat.ui.components.createAlertDialog
 import kotlinx.coroutines.flow.Flow
@@ -77,6 +77,14 @@ sealed class ChatScreenUIEvent {
         data class ToggleTaskListBottomList(
             val visible: Boolean,
         ) : ChatScreenUIEvent()
+
+        data class ToggleSettingsDialog(
+            val visible: Boolean,
+        ) : ChatScreenUIEvent()
+
+        data class ToggleClearChatHistoryDialog(
+            val visible: Boolean,
+        ) : ChatScreenUIEvent()
     }
 }
 
@@ -90,26 +98,50 @@ data class ChatScreenUiState(
     val showSelectModelListDialog: Boolean = false,
     val showMoreOptionsPopup: Boolean = false,
     val showTaskListBottomList: Boolean = false,
+    val showSettingsDialog: Boolean = false,
+    val showClearChatHistoryDialog: Boolean = false,
     val showRAMUsageLabel: Boolean = true,
     val errorDialog: ErrorDialog? = null
 )
 
-data class ErrorDialog(
-    val title: String,
-    val message: String,
-    val positiveButtonText: String,
-    val onPositiveButtonClick: () -> Unit,
-    val negativeButtonText: String?,
-    val onNegativeButtonClick: (() -> Unit)?
-)
+import android.app.Application
 
 @KoinViewModel
 class ChatScreenViewModel(
+    private val application: Application,
     private val modelsRepository: ModelsRepository,
-    private val smolLMManager: SmolLMManager,
+    private val lobstaLMManager: LobstaLMManager,
     private val appDB: AppDB,
     val markwon: Markwon
 ) : ViewModel() {
+
+    fun createNewChatWithText(text: String) {
+        viewModelScope.launch {
+            val chatCount = appDB.getChatsCount()
+            val newChat = appDB.addChat(chatName = "${application.getString(R.string.default_chat_name)} ${chatCount + 1}")
+            switchChat(newChat)
+            questionTextDefaultVal = text
+        }
+    }
+
+    fun createChatFromTask(taskId: Long) {
+        viewModelScope.launch {
+            appDB.getTask(taskId)?.let { task ->
+                modelsRepository.getModelFromId(task.modelId)?.let { model ->
+                    val newTask =
+                        appDB.addChat(
+                            chatName = task.name,
+                            chatTemplate = model.chatTemplate,
+                            systemPrompt = task.systemPrompt,
+                            llmModelId = task.modelId,
+                            isTask = true,
+                        )
+                    switchChat(newTask)
+                }
+            }
+        }
+    }
+
     enum class ModelLoadingState {
         NOT_LOADED, // model loading not started
         IN_PROGRESS, // model loading in-progress
@@ -191,7 +223,7 @@ class ChatScreenViewModel(
                 // Update the 'dateUsed' attribute of the current Chat instance
                 // when a query is sent by the user
                 var updatedChat = chat.copy(dateUsed = Date())
-                if (updatedChat.name.startsWith("Untitled") && getChatMessages(updatedChat.id).first().isEmpty()) {
+                if (updatedChat.name.startsWith(application.getString(R.string.default_chat_name)) && getChatMessages(updatedChat.id).first().isEmpty()) {
                     val newName = query.split(" ").take(5).joinToString(" ")
                     updatedChat = updatedChat.copy(name = newName)
                 }
@@ -208,7 +240,7 @@ class ChatScreenViewModel(
                     appDB.addUserMessage(chat.id, query)
                 }
                 _uiState.value = _uiState.value.copy(isGeneratingResponse = true, partialResponse = "")
-                smolLMManager.getResponse(
+                lobstaLMManager.getResponse(
                     query,
                     responseTransform = {
                         // Replace <think> tags with <blockquote> tags
@@ -236,9 +268,9 @@ class ChatScreenViewModel(
                         _uiState.value = _uiState.value.copy(
                             isGeneratingResponse = false,
                             errorDialog = ErrorDialog(
-                                title = "An error occurred",
-                                message = "The app is unable to process the query. The error message is: ${exception.message}",
-                                positiveButtonText = "Change model",
+                                title = application.getString(R.string.dialog_title_error),
+                                message = application.getString(R.string.dialog_message_error_query, exception.message),
+                                positiveButtonText = application.getString(R.string.dialog_positive_button_change_model),
                                 onPositiveButtonClick = {
                                     _uiState.value = _uiState.value.copy(showSelectModelListDialog = true)
                                 },
@@ -254,7 +286,7 @@ class ChatScreenViewModel(
 
     fun stopGeneration() {
         _uiState.value = _uiState.value.copy(isGeneratingResponse = false, partialResponse = "")
-        smolLMManager.stopResponseGeneration()
+        lobstaLMManager.stopResponseGeneration()
     }
 
     fun switchChat(chat: Chat) {
@@ -301,35 +333,35 @@ class ChatScreenViewModel(
                     _uiState.value = _uiState.value.copy(showSelectModelListDialog = true)
                 } else {
                     _uiState.value = _uiState.value.copy(modelLoadingState = ModelLoadingState.IN_PROGRESS)
-                    smolLMManager.load(
+                    lobstaLMManager.load(
                         chat,
                         model.path,
-                        SmolLM.InferenceParams(
-                            chat.minP,
-                            chat.temperature,
-                            !chat.isTask,
-                            chat.contextSize.toLong(),
-                            chat.chatTemplate,
-                            chat.nThreads,
-                            chat.useMmap,
-                            chat.useMlock,
-                            chat.topP,
-                            chat.topK,
-                            chat.xtcP,
-                            chat.xtcT,
+                        LobstaLM.InferenceParams(
+                            minP = chat.inferenceParams.minP,
+                            temperature = chat.inferenceParams.temperature,
+                            storeChats = !chat.isTask,
+                            contextSize = chat.contextSize.toLong(),
+                            chatTemplate = chat.chatTemplate,
+                            numThreads = chat.inferenceParams.nThreads,
+                            useMmap = chat.inferenceParams.useMmap,
+                            useMlock = chat.inferenceParams.useMlock,
+                            topP = chat.inferenceParams.topP,
+                            topK = chat.inferenceParams.topK,
+                            xtcP = chat.inferenceParams.xtcP,
+                            xtcT = chat.inferenceParams.xtcT,
                         ),
                         onError = { e ->
                             _uiState.value = _uiState.value.copy(
                                 modelLoadingState = ModelLoadingState.FAILURE,
                                 errorDialog = ErrorDialog(
-                                    title = "Error loading model",
-                                    message = "Failed to load the model. Error: ${e.message}",
-                                    positiveButtonText = "Change model",
+                                    title = application.getString(R.string.dialog_title_error_loading_model),
+                                    message = application.getString(R.string.dialog_message_error_loading_model, e.message),
+                                    positiveButtonText = application.getString(R.string.dialog_positive_button_change_model),
                                     onPositiveButtonClick = {
                                         _uiState.value =
                                             _uiState.value.copy(showSelectModelListDialog = true)
                                     },
-                                    negativeButtonText = "Close",
+                                    negativeButtonText = application.getString(R.string.dialog_negative_button_close),
                                     onNegativeButtonClick = {
                                         _uiState.value = _uiState.value.copy(errorDialog = null)
                                     }
@@ -352,49 +384,13 @@ class ChatScreenViewModel(
      * if the inference is not in progress.
      */
     fun unloadModel(): Boolean =
-        if (!smolLMManager.isInferenceOn) {
-            smolLMManager.close()
+        if (!lobstaLMManager.isInferenceOn) {
+            lobstaLMManager.close()
             _uiState.value = _uiState.value.copy(modelLoadingState = ModelLoadingState.NOT_LOADED)
             true
         } else {
             false
         }
-
-    /**
-     * Get the current memory usage of the device.
-     * This method returns the memory consumed (in GBs) and the total
-     * memory available on the device (in GBs)
-     */
-    fun getCurrentMemoryUsage(context: Context): Pair<Float, Float> {
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val memoryInfo = MemoryInfo()
-        activityManager.getMemoryInfo(memoryInfo)
-        val totalMemory = (memoryInfo.totalMem) / 1024.0.pow(3.0)
-        val usedMemory = (memoryInfo.availMem) / 1024.0.pow(3.0)
-        return Pair(usedMemory.toFloat(), totalMemory.toFloat())
-    }
-
-    @SuppressLint("StringFormatMatches")
-    fun showContextLengthUsageDialog(context: Context) {
-        _uiState.value.currChat?.let { chat ->
-            _uiState.value = _uiState.value.copy(
-                errorDialog = ErrorDialog(
-                    title = context.getString(R.string.dialog_ctx_usage_title),
-                    message = context.getString(
-                        R.string.dialog_ctx_usage_text,
-                        chat.contextSizeConsumed,
-                        chat.contextSize,
-                    ),
-                    positiveButtonText = context.getString(R.string.dialog_ctx_usage_close),
-                    onPositiveButtonClick = {
-                        _uiState.value = _uiState.value.copy(errorDialog = null)
-                    },
-                    negativeButtonText = null,
-                    onNegativeButtonClick = null
-                )
-            )
-        }
-    }
 
     fun onEvent(event: ChatScreenUIEvent) {
         when (event) {
@@ -412,6 +408,14 @@ class ChatScreenViewModel(
 
             is ChatScreenUIEvent.DialogEvents.ToggleChangeFolderDialog -> {
                 _uiState.value = _uiState.value.copy(showChangeFolderDialog = event.visible)
+            }
+
+            is ChatScreenUIEvent.DialogEvents.ToggleSettingsDialog -> {
+                _uiState.value = _uiState.value.copy(showSettingsDialog = event.visible)
+            }
+
+            is ChatScreenUIEvent.DialogEvents.ToggleClearChatHistoryDialog -> {
+                _uiState.value = _uiState.value.copy(showClearChatHistoryDialog = event.visible)
             }
 
             else -> {}

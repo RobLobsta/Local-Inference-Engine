@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SmolChat</string>
+    <string name="app_name">LobstaChat</string>
     <string name="chat_select_model">Select a model ...</string>
     <string name="chat_loading_model">Loading model...</string>
     <string name="chat_model_cannot_be_loaded">The model selected for the chat cannot be loaded</string>
@@ -119,4 +119,24 @@
     <string name="download_model_step_hf_browse">Browse the model from HuggingFace and download the .gguf model file.</string>
     <string name="dialog_invalid_file_title">Invalid File</string>
     <string name="dialog_invalid_file_text">The selected file is not a valid GGUF file.</string>
+    <string name="dialog_message_error_query">The app is unable to process the query. The error message is: %s</string>
+    <string name="dialog_title_error_loading_model">Error loading model</string>
+    <string name="default_chat_name">Untitled</string>
+    <string name="default_system_prompt">You are a helpful assistant.</string>
+    <string name="copied_message_toast">Copied message</string>
+    <string name="download_model_description">The GGUF model will be downloaded on your device for use with LobstaChat.</string>
+    <string name="tokens_per_second">%.2f tokens/s</string>
+    <string name="generation_time_in_seconds">%d s</string>
+    <string name="n_threads_label">Number of Threads</string>
+    <string name="use_mmap_label">Use mmap</string>
+    <string name="use_mmap_description">Disable memory mapping (mmap) for potentially fewer pageouts and better performance on low-memory systems, but with slower load times and a risk of preventing loading large models.</string>
+    <string name="use_mlock_label">Use mlock</string>
+    <string name="use_mlock_description">Keep the model loaded in RAM for faster performance, but uses more memory and may load slower.</string>
+    <string name="model_size_in_gb">%.1f GB</string>
+    <string name="or_separator">OR</string>
+    <string name="files_label">Files</string>
+    <string name="clear_chat_history_dialog_title">Clear chat history</string>
+    <string name="clear_chat_history_dialog_text">Are you sure you want to clear the chat history for this chat?</string>
+    <string name="clear_chat_history_dialog_confirm_button">Clear</string>
+    <string name="clear_chat_history_dialog_dismiss_button">Cancel</string>
 </resources>

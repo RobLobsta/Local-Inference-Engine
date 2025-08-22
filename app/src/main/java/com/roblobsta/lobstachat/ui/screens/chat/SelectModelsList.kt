@@ -239,7 +239,7 @@ private fun ModelListItem(
                 maxLines = 1,
             )
             Text(
-                text = "%.1f GB".format(File(model.path).length() / (1e+9)),
+                text = stringResource(R.string.model_size_in_gb, File(model.path).length() / (1e+9)),
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
             )

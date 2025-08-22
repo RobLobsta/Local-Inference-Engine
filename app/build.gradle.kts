@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.roblobsta.lobstachat"
     compileSdk = 34
-    ndkVersion = "27.2.12479018"
+    ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
         applicationId = "com.roblobsta.lobstachat"
@@ -50,19 +50,6 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    applicationVariants.configureEach {
-        kotlin.sourceSets {
-            getByName(name) {
-                kotlin.srcDir("build/generated/ksp/$name/kotlin")
-            }
-        }
-    }
-    configurations {
-        create("cleanedAnnotations")
-        implementation {
-            exclude(group = "org.jetbrains", module = "annotations")
         }
     }
 }

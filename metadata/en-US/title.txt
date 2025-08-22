@@ -1,1 +1,1 @@
-SmolChat - Run LLMs locally on your mobile
+LobstaChat - Run LLMs locally on your mobile

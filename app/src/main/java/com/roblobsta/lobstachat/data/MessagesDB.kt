@@ -23,7 +23,9 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-@Entity(tableName = "ChatMessage")
+import androidx.room.Index
+
+@Entity(tableName = "ChatMessage", indices = [Index(value = ["chatId"])])
 data class ChatMessage(
     @PrimaryKey(autoGenerate = true) var id: Long = 0,
     var chatId: Long = 0,

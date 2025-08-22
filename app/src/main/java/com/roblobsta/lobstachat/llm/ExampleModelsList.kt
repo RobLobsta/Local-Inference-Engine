@@ -25,14 +25,14 @@ import com.roblobsta.lobstachat.data.LLMModel
 val exampleModelsList =
     listOf(
         LLMModel(
-            name = "SmolLM2 360M Instruct GGUF",
+            name = "LobstaLM2 360M Instruct GGUF",
             url =
-                "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf",
+                "https://huggingface.co/HuggingFaceTB/LobstaLM2-360M-Instruct-GGUF/resolve/main/lobstalm2-360m-instruct-q8_0.gguf",
         ),
         LLMModel(
-            name = "SmolLM2 1.7B Instruct GGUF",
+            name = "LobstaLM2 1.7B Instruct GGUF",
             url =
-                "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf",
+                "https://huggingface.co/HuggingFaceTB/LobstaLM2-1.7B-Instruct-GGUF/resolve/main/lobstalm2-1.7b-instruct-q4_k_m.gguf",
         ),
         LLMModel(
             name = "Qwen2.5 1.5B Q8 Instruct GGUF",

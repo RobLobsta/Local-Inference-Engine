@@ -149,7 +149,7 @@ fun ViewHFModelScreen(
                                 tint = MaterialTheme.colorScheme.secondary,
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            LargeLabelText(text = "Files")
+                            LargeLabelText(text = stringResource(R.string.files_label))
                         }
                         GGUFModelsList(modelFiles, onModelClick = { modelFile ->
                             createAlertDialog(

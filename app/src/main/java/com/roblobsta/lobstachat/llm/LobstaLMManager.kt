@@ -17,7 +17,7 @@
 package com.roblobsta.lobstachat.llm
 
 import android.util.Log
-import com.roblobsta.lobstachat.lm.SmolLM
+import com.roblobsta.lobstachat.lm.LobstaLM
 import com.roblobsta.lobstachat.data.AppDB
 import com.roblobsta.lobstachat.data.Chat
 import kotlinx.coroutines.CancellationException
@@ -29,21 +29,22 @@ import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 import kotlin.time.measureTime
 
-private const val LOGTAG = "[SmolLMManager-Kt]"
+private const val LOGTAG = "[LobstaLMManager-Kt]"
 private val LOGD: (String) -> Unit = { Log.d(LOGTAG, it) }
 
 @Single
-class SmolLMManager(
+class LobstaLMManager(
     private val appDB: AppDB,
 ) {
-    private val instance = SmolLM()
+    private var instance: LobstaLM? = null
     private var responseGenerationJob: Job? = null
     private var modelInitJob: Job? = null
     private var chat: Chat? = null
-    private var isInstanceLoaded = false
+    private var cachedChatId: Long? = null
+
     var isInferenceOn = false
 
-    data class SmolLMResponse(
+    data class LobstaLMResponse(
         val response: String,
         val generationSpeed: Float,
         val generationTimeSecs: Int,
@@ -53,61 +54,78 @@ class SmolLMManager(
     fun load(
         chat: Chat,
         modelPath: String,
-        params: SmolLM.InferenceParams = SmolLM.InferenceParams(),
+        params: LobstaLM.InferenceParams = LobstaLM.InferenceParams(),
         onError: (Exception) -> Unit,
         onSuccess: () -> Unit,
     ) {
-        try {
+        if (cachedChatId == chat.id && instance != null) {
+            LOGD("Using cached LLM instance for chat ${chat.id}")
             this.chat = chat
-            modelInitJob =
-                CoroutineScope(Dispatchers.Default).launch {
-                    if (isInstanceLoaded) {
-                        close()
-                    }
-                    instance.load(modelPath, params)
-                    LOGD("Model loaded")
-                    if (chat.systemPrompt.isNotEmpty()) {
-                        instance.addSystemPrompt(chat.systemPrompt)
-                        LOGD("System prompt added")
-                    }
-                    if (!chat.isTask) {
-                        appDB.getMessagesForModel(chat.id).forEach { message ->
-                            if (message.isUserMessage) {
-                                instance.addUserMessage(message.message)
-                                LOGD("User message added: ${message.message}")
-                            } else {
-                                instance.addAssistantMessage(message.message)
-                                LOGD("Assistant message added: ${message.message}")
+            onSuccess()
+            return
+        }
+
+        this.chat = chat
+        modelInitJob =
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    instance?.close()
+                    instance = LobstaLM().apply {
+                        load(modelPath, params)
+                        LOGD("Model loaded")
+                        if (chat.systemPrompt.isNotEmpty()) {
+                            addSystemPrompt(chat.systemPrompt)
+                            LOGD("System prompt added")
+                        }
+                        if (!chat.isTask) {
+                            appDB.getMessagesForModel(chat.id).forEach { message ->
+                                if (message.isUserMessage) {
+                                    addUserMessage(message.message)
+                                    LOGD("User message added: ${message.message}")
+                                } else {
+                                    addAssistantMessage(message.message)
+                                    LOGD("Assistant message added: ${message.message}")
+                                }
                             }
                         }
                     }
                     withContext(Dispatchers.Main) {
-                        isInstanceLoaded = true
+                        cachedChatId = chat.id
                         onSuccess()
                     }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        onError(e)
+                    }
                 }
-        } catch (e: Exception) {
-            onError(e)
-        }
+            }
     }
 
     fun getResponse(
         query: String,
         responseTransform: (String) -> String,
         onPartialResponseGenerated: (String) -> Unit,
-        onSuccess: (SmolLMResponse) -> Unit,
+        onSuccess: (LobstaLMResponse) -> Unit,
         onCancelled: () -> Unit,
         onError: (Exception) -> Unit,
     ) {
-        try {
-            assert(chat != null) { "Please call SmolLMManager.create() first." }
-            responseGenerationJob =
-                CoroutineScope(Dispatchers.Default).launch {
-                    isInferenceOn = true
-                    var response = ""
+        val currentInstance = instance ?: run {
+            onError(IllegalStateException("Model not loaded"))
+            return
+        }
+        val currentChat = chat ?: run {
+            onError(IllegalStateException("Chat not loaded"))
+            return
+        }
+
+        responseGenerationJob =
+            CoroutineScope(Dispatchers.Default).launch {
+                isInferenceOn = true
+                var response = ""
+                try {
                     val duration =
                         measureTime {
-                            instance.getResponseAsFlow(query).collect { piece ->
+                            currentInstance.getResponseAsFlow(query).collect { piece ->
                                 response += piece
                                 withContext(Dispatchers.Main) {
                                     onPartialResponseGenerated(response)
@@ -117,26 +135,30 @@ class SmolLMManager(
                     response = responseTransform(response)
                     // once the response is generated
                     // add it to the messages database
-                    appDB.addAssistantMessage(chat!!.id, response)
+                    appDB.addAssistantMessage(currentChat.id, response)
                     withContext(Dispatchers.Main) {
                         isInferenceOn = false
                         onSuccess(
-                            SmolLMResponse(
+                            LobstaLMResponse(
                                 response = response,
-                                generationSpeed = instance.getResponseGenerationSpeed(),
+                                generationSpeed = currentInstance.getResponseGenerationSpeed(),
                                 generationTimeSecs = duration.inWholeSeconds.toInt(),
-                                contextLengthUsed = instance.getContextLengthUsed(),
+                                contextLengthUsed = currentInstance.getContextLengthUsed(),
                             ),
                         )
                     }
+                } catch (e: CancellationException) {
+                    withContext(Dispatchers.Main) {
+                        isInferenceOn = false
+                        onCancelled()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        isInferenceOn = false
+                        onError(e)
+                    }
                 }
-        } catch (e: CancellationException) {
-            isInferenceOn = false
-            onCancelled()
-        } catch (e: Exception) {
-            isInferenceOn = false
-            onError(e)
-        }
+            }
     }
 
     fun stopResponseGeneration() {
@@ -146,8 +168,9 @@ class SmolLMManager(
     fun close() {
         stopResponseGeneration()
         modelInitJob?.let { cancelJobIfActive(it) }
-        instance.close()
-        isInstanceLoaded = false
+        instance?.close()
+        instance = null
+        cachedChatId = null
     }
 
     private fun cancelJobIfActive(job: Job) {

@@ -133,10 +133,7 @@ class ChatActivity : ComponentActivity() {
          */
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             intent.getStringExtra(Intent.EXTRA_TEXT)?.let { text ->
-                val chatCount = viewModel.appDB.getChatsCount()
-                val newChat = viewModel.appDB.addChat(chatName = "Untitled ${chatCount + 1}")
-                viewModel.switchChat(newChat)
-                viewModel.questionTextDefaultVal = text
+                viewModel.createNewChatWithText(text)
             }
         }
 
@@ -147,9 +144,7 @@ class ChatActivity : ComponentActivity() {
          */
         if (intent?.action == Intent.ACTION_VIEW && intent.getLongExtra("task_id", 0L) != 0L) {
             val taskId = intent.getLongExtra("task_id", 0L)
-            viewModel.appDB.getTask(taskId)?.let { task ->
-                createChatFromTask(viewModel, task)
-            }
+            viewModel.createChatFromTask(taskId)
         }
 
         setContent {
@@ -290,6 +285,19 @@ fun ChatActivityScreenUI(
                                     }
                                     ChatMoreOptionsPopup(viewModel, onEditChatParamsClick)
                                 }
+                                Box {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.onEvent(ChatScreenUIEvent.DialogEvents.ToggleSettingsDialog(true))
+                                        },
+                                    ) {
+                                        Icon(
+                                            FeatherIcons.Settings,
+                                            contentDescription = "Settings",
+                                            tint = MaterialTheme.colorScheme.secondary,
+                                        )
+                                    }
+                                }
                             }
                         },
                     )
@@ -311,6 +319,26 @@ fun ChatActivityScreenUI(
             ChangeFolderDialog(viewModel)
             TextFieldDialog()
             FolderOptionsDialog()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            if (uiState.showSettingsDialog) {
+                SettingsScreen(viewModel) {
+                    viewModel.onEvent(ChatScreenUIEvent.DialogEvents.ToggleSettingsDialog(false))
+                }
+            }
+            if (uiState.showClearChatHistoryDialog) {
+                AppAlertDialog(
+                    onDismissRequest = { viewModel.onEvent(ChatScreenUIEvent.DialogEvents.ToggleClearChatHistoryDialog(false)) },
+                    title = stringResource(R.string.clear_chat_history_dialog_title),
+                    text = stringResource(R.string.clear_chat_history_dialog_text),
+                    confirmButtonText = stringResource(R.string.clear_chat_history_dialog_confirm_button),
+                    onConfirm = {
+                        viewModel.deleteChatMessages(uiState.currChat!!)
+                        viewModel.onEvent(ChatScreenUIEvent.DialogEvents.ToggleClearChatHistoryDialog(false))
+                    },
+                    dismissButtonText = stringResource(R.string.clear_chat_history_dialog_dismiss_button),
+                    onDismiss = { viewModel.onEvent(ChatScreenUIEvent.DialogEvents.ToggleClearChatHistoryDialog(false)) }
+                )
+            }
         }
     }
 }
@@ -336,19 +364,19 @@ private fun ColumnScope.ScreenUI(
 
 @Composable
 private fun RAMUsageLabel(viewModel: ChatScreenViewModel) {
-    val showRAMUsageLabel by viewModel.showRAMUsageLabel.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var labelText by remember { mutableStateOf("") }
-    LaunchedEffect(showRAMUsageLabel) {
-        if (showRAMUsageLabel) {
+    LaunchedEffect(uiState.showRAMUsageLabel) {
+        if (uiState.showRAMUsageLabel) {
             while (true) {
-                val (used, total) = viewModel.getCurrentMemoryUsage()
+                val (used, total) = viewModel.getCurrentMemoryUsage(context)
                 labelText = context.getString(R.string.label_device_ram).format(used, total)
                 delay(3000L)
             }
         }
     }
-    if (showRAMUsageLabel) {
+    if (uiState.showRAMUsageLabel) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             labelText,
@@ -409,24 +437,9 @@ private fun ColumnScope.MessagesList(
                     )
                 },
                 onMessageEdited = { newMessage ->
-                    // viewModel.sendUserQuery will add a new message to the chat
-                    // hence we delete the old message and the corresponding LLM
-                    // response if there exists one
-                    // TODO: There should be no need to unload/load the model again
-                    //       as only the conversation messages have changed.
-                    //       Currently there's no native function to edit the conversation messages
-                    //       so unload (remove all messages) and load (add all messages) the model.
-                    viewModel.deleteMessage(chatMessage.id)
-                    if (!messages.last().isUserMessage) {
-                        viewModel.deleteMessage(messages.last().id)
-                    }
-                    viewModel.appDB.addUserMessage(chatId, newMessage)
-                    viewModel.unloadModel()
-                    viewModel.loadModel(onComplete = {
-                        if (it == ModelLoadingState.SUCCESS) {
-                            viewModel.sendUserQuery(newMessage, addMessageToDB = false)
-                        }
-                    })
+                    // TODO: Implement this in the JNI layer
+                    // viewModel.lobstaLMManager.editMessage(i, newMessage)
+                    viewModel.sendUserQuery(newMessage, addMessageToDB = false)
                 },
                 // allow editing the message only if it is the last message in the list
                 allowEditing = (i == lastUserMessageIndex),
@@ -544,7 +557,7 @@ private fun LazyItemScope.MessageListItem(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "%.2f tokens/s".format(it),
+                            text = stringResource(R.string.tokens_per_second, it),
                             fontSize = 8.sp,
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -557,7 +570,7 @@ private fun LazyItemScope.MessageListItem(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "$responseGenerationTimeSecs s",
+                            text = stringResource(R.string.generation_time_in_seconds, responseGenerationTimeSecs),
                             fontSize = 8.sp,
                         )
                     }

@@ -17,6 +17,7 @@
 package io.shubham0204.smollmandroid.llm
 
 import android.util.Log
+import android.content.Context
 import io.shubham0204.smollm.SmolLM
 import io.shubham0204.smollmandroid.data.AppDB
 import io.shubham0204.smollmandroid.data.Chat
@@ -26,7 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.koin.core.annotation.Single
+import java.io.File
 import kotlin.time.measureTime
 
 private const val LOGTAG = "[SmolLMManager-Kt]"
@@ -34,6 +35,7 @@ private val LOGD: (String) -> Unit = { Log.d(LOGTAG, it) }
 
 class SmolLMManager(
     private val appDB: AppDB,
+    private val context: Context,
 ) {
     private val instance = SmolLM()
     private var responseGenerationJob: Job? = null
@@ -66,21 +68,31 @@ class SmolLMManager(
                     }
                     instance.load(modelPath, params)
                     LOGD("Model loaded")
-                    if (chat.systemPrompt.isNotEmpty()) {
-                        instance.addSystemPrompt(chat.systemPrompt)
-                        LOGD("System prompt added")
-                    }
-                    if (!chat.isTask) {
-                        appDB.getMessagesForModel(chat.id).forEach { message ->
-                            if (message.isUserMessage) {
-                                instance.addUserMessage(message.message)
-                                LOGD("User message added: ${message.message}")
-                            } else {
-                                instance.addAssistantMessage(message.message)
-                                LOGD("Assistant message added: ${message.message}")
+
+                    val sessionFile = File(context.filesDir, "session_${chat.id}.bin")
+                    if (sessionFile.exists()) {
+                        instance.loadSession(sessionFile.absolutePath)
+                        LOGD("Session loaded from ${sessionFile.absolutePath}")
+                    } else {
+                        if (chat.systemPrompt.isNotEmpty()) {
+                            instance.addSystemPrompt(chat.systemPrompt)
+                            LOGD("System prompt added")
+                        }
+                        if (!chat.isTask) {
+                            appDB.getMessagesForModel(chat.id).forEach { message ->
+                                if (message.isUserMessage) {
+                                    instance.addUserMessage(message.message)
+                                    LOGD("User message added: ${message.message}")
+                                } else {
+                                    instance.addAssistantMessage(message.message)
+                                    LOGD("Assistant message added: ${message.message}")
+                                }
                             }
                         }
+                        instance.saveSession(sessionFile.absolutePath)
+                        LOGD("Session saved to ${sessionFile.absolutePath}")
                     }
+
                     withContext(Dispatchers.Main) {
                         isInstanceLoaded = true
                         onSuccess()
@@ -119,6 +131,12 @@ class SmolLMManager(
                     // once the response is generated
                     // add it to the messages database
                     appDB.addAssistantMessage(chat!!.id, response)
+
+                    // Save the session
+                    val sessionFile = File(context.filesDir, "session_${chat!!.id}.bin")
+                    instance.saveSession(sessionFile.absolutePath)
+                    LOGD("Session updated at ${sessionFile.absolutePath}")
+
                     withContext(Dispatchers.Main) {
                         isInferenceOn = false
                         onSuccess(
@@ -137,6 +155,14 @@ class SmolLMManager(
         } catch (e: Exception) {
             isInferenceOn = false
             onError(e)
+        }
+    }
+
+    fun deleteSession(chatId: Long) {
+        val sessionFile = File(context.filesDir, "session_${chatId}.bin")
+        if (sessionFile.exists()) {
+            sessionFile.delete()
+            LOGD("Session file deleted: ${sessionFile.absolutePath}")
         }
     }
 

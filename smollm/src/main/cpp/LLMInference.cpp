@@ -251,3 +251,14 @@ LLMInference::~LLMInference() {
     llama_free(_ctx);
     llama_model_free(_model);
 }
+
+void
+LLMInference::saveSession(const std::string& path) {
+    llama_save_session_file(_ctx, path.c_str(), nullptr, 0);
+}
+
+void
+LLMInference::loadSession(const std::string& path) {
+    size_t n_session_tokens = 0;
+    llama_load_session_file(_ctx, path.c_str(), nullptr, 0, &n_session_tokens);
+}

@@ -313,6 +313,7 @@ class ChatScreenViewModel(
             stopGeneration()
             appDB.deleteChat(chat)
             appDB.deleteMessages(chat.id)
+            smolLMManager.deleteSession(chat.id)
             _currChatState.value = null
         }
     }

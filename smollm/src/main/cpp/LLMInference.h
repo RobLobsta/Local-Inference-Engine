@@ -54,5 +54,9 @@ class LLMInference {
 
     void stopCompletion();
 
+    void saveSession(const std::string& path);
+
+    void loadSession(const std::string& path);
+
     ~LLMInference();
 };

@@ -79,3 +79,21 @@ Java_io_shubham0204_smollm_SmolLM_stopCompletion(JNIEnv* env, jobject thiz, jlon
     auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
     llmInference->stopCompletion();
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_shubham0204_smollm_SmolLM_saveSession(JNIEnv* env, jobject thiz, jlong modelPtr, jstring path) {
+    jboolean isCopy = true;
+    const char* pathCstr = env->GetStringUTFChars(path, &isCopy);
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    llmInference->saveSession(pathCstr);
+    env->ReleaseStringUTFChars(path, pathCstr);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_shubham0204_smollm_SmolLM_loadSession(JNIEnv* env, jobject thiz, jlong modelPtr, jstring path) {
+    jboolean isCopy = true;
+    const char* pathCstr = env->GetStringUTFChars(path, &isCopy);
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    llmInference->loadSession(pathCstr);
+    env->ReleaseStringUTFChars(path, pathCstr);
+}

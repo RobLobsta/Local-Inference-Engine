@@ -328,6 +328,18 @@ class SmolLM {
         }
     }
 
+    suspend fun saveSession(path: String) =
+        withContext(Dispatchers.IO) {
+            verifyHandle()
+            saveSession(nativePtr, path)
+        }
+
+    suspend fun loadSession(path: String) =
+        withContext(Dispatchers.IO) {
+            verifyHandle()
+            loadSession(nativePtr, path)
+        }
+
     private fun verifyHandle() {
         assert(nativePtr != 0L) { "Model is not loaded. Use SmolLM.create to load the model" }
     }
@@ -368,4 +380,8 @@ class SmolLM {
     private external fun completionLoop(modelPtr: Long): String
 
     private external fun stopCompletion(modelPtr: Long)
+
+    private external fun saveSession(modelPtr: Long, path: String)
+
+    private external fun loadSession(modelPtr: Long, path: String)
 }

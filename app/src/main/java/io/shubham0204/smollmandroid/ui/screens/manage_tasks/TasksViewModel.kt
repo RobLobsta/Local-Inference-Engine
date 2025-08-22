@@ -18,9 +18,11 @@ package io.shubham0204.smollmandroid.ui.screens.manage_tasks
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import io.shubham0204.smollmandroid.data.AppDB
 import io.shubham0204.smollmandroid.data.Task
 import io.shubham0204.smollmandroid.llm.ModelsRepository
+import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
 
 @KoinViewModel
@@ -37,14 +39,20 @@ class TasksViewModel(
         systemPrompt: String,
         modelId: Long,
     ) {
-        appDB.addTask(name, systemPrompt, modelId)
+        viewModelScope.launch {
+            appDB.addTask(name, systemPrompt, modelId)
+        }
     }
 
     fun updateTask(newTask: Task) {
-        appDB.updateTask(newTask)
+        viewModelScope.launch {
+            appDB.updateTask(newTask)
+        }
     }
 
     fun deleteTask(taskId: Long) {
-        appDB.deleteTask(taskId)
+        viewModelScope.launch {
+            appDB.deleteTask(taskId)
+        }
     }
 }

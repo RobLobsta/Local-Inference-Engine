@@ -102,6 +102,7 @@ class DownloadModelsViewModel(
      */
     fun copyModelFile(
         uri: Uri,
+        scope: CoroutineScope,
         onComplete: () -> Unit,
     ) {
         var fileName = ""
@@ -116,7 +117,7 @@ class DownloadModelsViewModel(
                 context.getString(R.string.dialog_progress_copy_model_text, fileName),
             )
             showProgressDialog()
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri).use { inputStream ->
                     FileOutputStream(File(context.filesDir, fileName)).use { outputStream ->
                         inputStream?.copyTo(outputStream)

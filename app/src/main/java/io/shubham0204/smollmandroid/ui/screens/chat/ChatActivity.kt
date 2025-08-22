@@ -133,10 +133,7 @@ class ChatActivity : ComponentActivity() {
          */
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             intent.getStringExtra(Intent.EXTRA_TEXT)?.let { text ->
-                val chatCount = viewModel.appDB.getChatsCount()
-                val newChat = viewModel.appDB.addChat(chatName = "Untitled ${chatCount + 1}")
-                viewModel.switchChat(newChat)
-                viewModel.questionTextDefaultVal = text
+                viewModel.handleShareIntent(text)
             }
         }
 
@@ -147,10 +144,10 @@ class ChatActivity : ComponentActivity() {
          */
         if (intent?.action == Intent.ACTION_VIEW && intent.getLongExtra("task_id", 0L) != 0L) {
             val taskId = intent.getLongExtra("task_id", 0L)
-            viewModel.appDB.getTask(taskId)?.let { task ->
-                createChatFromTask(viewModel, task)
-            }
+            viewModel.handleTaskIntent(taskId)
         }
+
+        viewModel.loadInitialChat()
 
         setContent {
             val navController = rememberNavController()
@@ -206,7 +203,24 @@ fun ChatActivityScreenUI(
     val currChat by viewModel.currChatState.collectAsStateWithLifecycle(lifecycleOwner = LocalLifecycleOwner.current)
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    LaunchedEffect(currChat) { viewModel.loadModel() }
+
+    // This is a composable, so we can't call suspend functions directly.
+    // We need to launch a coroutine.
+    LaunchedEffect(currChat) {
+        // We need to call getModelFromId, which is a suspend function.
+        // We can't do this in the Text composable, so we do it here.
+        currChat?.let {
+            if (it.llmModelId != -1L) {
+                val model = viewModel.modelsRepository.getModelFromId(it.llmModelId)
+                // We can't update the UI directly from here, so we'll need to
+                // add a new state variable to the ViewModel to hold the model name.
+                // For now, we'll just log it.
+                Log.d(LOGTAG, "Model name: ${model?.name}")
+            }
+        }
+        viewModel.loadModel()
+    }
+
     SmolLMAndroidTheme {
         ModalNavigationDrawer(
             drawerState = drawerState,
@@ -410,24 +424,7 @@ private fun ColumnScope.MessagesList(
                     )
                 },
                 onMessageEdited = { newMessage ->
-                    // viewModel.sendUserQuery will add a new message to the chat
-                    // hence we delete the old message and the corresponding LLM
-                    // response if there exists one
-                    // TODO: There should be no need to unload/load the model again
-                    //       as only the conversation messages have changed.
-                    //       Currently there's no native function to edit the conversation messages
-                    //       so unload (remove all messages) and load (add all messages) the model.
-                    viewModel.deleteMessage(chatMessage.id)
-                    if (!messages.last().isUserMessage) {
-                        viewModel.deleteMessage(messages.last().id)
-                    }
-                    viewModel.appDB.addUserMessage(chatId, newMessage)
-                    viewModel.unloadModel()
-                    viewModel.loadModel(onComplete = {
-                        if (it == ModelLoadingState.SUCCESS) {
-                            viewModel.sendUserQuery(newMessage, addMessageToDB = false)
-                        }
-                    })
+                    viewModel.editMessage(chatMessage, newMessage, messages)
                 },
                 // allow editing the message only if it is the last message in the list
                 allowEditing = (i == lastUserMessageIndex),
@@ -829,7 +826,7 @@ private fun TasksListBottomSheet(viewModel: ChatScreenViewModel) {
                             it.copy(modelName = modelName)
                         },
                         onTaskSelected = { task ->
-                            createChatFromTask(viewModel, task)
+                            viewModel.createChatFromTask(task)
                         },
                         onUpdateTaskClick = { // Not applicable as showTaskOptions is set to `false`
                         },
@@ -903,22 +900,3 @@ private fun ChangeFolderDialog(viewModel: ChatScreenViewModel) {
     }
 }
 
-private fun createChatFromTask(
-    viewModel: ChatScreenViewModel,
-    task: Task,
-) {
-    // Using parameters from the `task`
-    // create a `Chat` instance and switch to it
-    viewModel.modelsRepository.getModelFromId(task.modelId)?.let { model ->
-        val newTask =
-            viewModel.appDB.addChat(
-                chatName = task.name,
-                chatTemplate = model.chatTemplate,
-                systemPrompt = task.systemPrompt,
-                llmModelId = task.modelId,
-                isTask = true,
-            )
-        viewModel.switchChat(newTask)
-        viewModel.onEvent(ChatScreenUIEvent.DialogEvents.ToggleTaskListBottomList(visible = false))
-    }
-}

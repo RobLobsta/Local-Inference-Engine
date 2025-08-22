@@ -315,12 +315,13 @@ class DownloadModelActivity : ComponentActivity() {
         onPrevSectionClick: () -> Unit,
         modifier: Modifier = Modifier,
     ) {
+        val scope = rememberCoroutineScope()
         val launcher =
             rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { activityResult ->
                 activityResult.data?.let {
                     it.data?.let { uri ->
                         if (checkGGUFFile(uri)) {
-                            viewModel.copyModelFile(uri, onComplete = { openChatActivity() })
+                            viewModel.copyModelFile(uri, scope, onComplete = { openChatActivity() })
                         } else {
                             createAlertDialog(
                                 dialogTitle = getString(R.string.dialog_invalid_file_title),

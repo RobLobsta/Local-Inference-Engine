@@ -139,7 +139,9 @@ class ChatScreenViewModel(
     private var activityManager: ActivityManager
 
     init {
-        _currChatState.value = appDB.loadDefaultChat()
+        viewModelScope.launch {
+            modelsRepository.cleanupMissingModels()
+        }
         activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val prism4j = Prism4j(PrismGrammarLocator())
         markwon =
@@ -179,6 +181,12 @@ class ChatScreenViewModel(
                 ).build()
     }
 
+    fun loadInitialChat() {
+        viewModelScope.launch {
+            _currChatState.value = appDB.loadDefaultChat()
+        }
+    }
+
     private fun spToPx(sp: Float): Int =
         TypedValue
             .applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.resources.displayMetrics)
@@ -196,84 +204,96 @@ class ChatScreenViewModel(
         modelId: Long,
         chatTemplate: String,
     ) {
-        _currChatState.value =
-            _currChatState.value?.copy(llmModelId = modelId, chatTemplate = chatTemplate)
-        appDB.updateChat(_currChatState.value!!)
+        viewModelScope.launch {
+            _currChatState.value =
+                _currChatState.value?.copy(llmModelId = modelId, chatTemplate = chatTemplate)
+            appDB.updateChat(_currChatState.value!!)
+        }
     }
 
     fun updateChatFolder(folderId: Long) {
-        // TODO: Modifying currChatState triggers a model reload which is not
-        //       needed when folder is changed.
-        // _currChatState.value = _currChatState.value?.copy(folderId = folderId)
-        appDB.updateChat(_currChatState.value!!.copy(folderId = folderId))
+        viewModelScope.launch {
+            // TODO: Modifying currChatState triggers a model reload which is not
+            //       needed when folder is changed.
+            // _currChatState.value = _currChatState.value?.copy(folderId = folderId)
+            appDB.updateChat(_currChatState.value!!.copy(folderId = folderId))
+        }
     }
 
     fun updateChat(chat: Chat) {
-        _currChatState.value = chat
-        appDB.updateChat(chat)
-        loadModel()
+        viewModelScope.launch {
+            _currChatState.value = chat
+            appDB.updateChat(chat)
+            loadModel()
+        }
     }
 
     fun deleteMessage(messageId: Long) {
-        appDB.deleteMessage(messageId)
+        viewModelScope.launch {
+            appDB.deleteMessage(messageId)
+        }
     }
 
     fun sendUserQuery(
         query: String,
         addMessageToDB: Boolean = true,
     ) {
-        _currChatState.value?.let { chat ->
-            // Update the 'dateUsed' attribute of the current Chat instance
-            // when a query is sent by the user
-            chat.dateUsed = Date()
-            appDB.updateChat(chat)
+        viewModelScope.launch {
+            _currChatState.value?.let { chat ->
+                // Update the 'dateUsed' attribute of the current Chat instance
+                // when a query is sent by the user
+                chat.dateUsed = Date()
+                appDB.updateChat(chat)
 
-            if (chat.isTask) {
-                // If the chat is a 'task', delete all existing messages
-                // to maintain the 'stateless' nature of the task
-                appDB.deleteMessages(chat.id)
-            }
+                if (chat.isTask) {
+                    // If the chat is a 'task', delete all existing messages
+                    // to maintain the 'stateless' nature of the task
+                    appDB.deleteMessages(chat.id)
+                }
 
-            if (addMessageToDB) {
-                appDB.addUserMessage(chat.id, query)
+                if (addMessageToDB) {
+                    appDB.addUserMessage(chat.id, query)
+                }
+                _isGeneratingResponse.value = true
+                _partialResponse.value = ""
+                smolLMManager.getResponse(
+                    query,
+                    responseTransform = {
+                        // Replace <think> tags with <blockquote> tags
+                        // to get a neat Markdown rendering
+                        findThinkTagRegex.replace(it) { matchResult ->
+                            "<blockquote><i><h6>${matchResult.groupValues[1].trim()}</i></h6></blockquote>"
+                        }
+                    },
+                    scope = viewModelScope,
+                    onPartialResponseGenerated = {
+                        _partialResponse.value = it
+                    },
+                    onSuccess = { response ->
+                        viewModelScope.launch {
+                            _isGeneratingResponse.value = false
+                            responseGenerationsSpeed = response.generationSpeed
+                            responseGenerationTimeSecs = response.generationTimeSecs
+                            appDB.updateChat(chat.copy(contextSizeConsumed = response.contextLengthUsed))
+                        }
+                    },
+                    onCancelled = {
+                        // ignore CancellationException, as it was called because
+                        // `responseGenerationJob` was cancelled in the `stopGeneration` method
+                    },
+                    onError = { exception ->
+                        _isGeneratingResponse.value = false
+                        createAlertDialog(
+                            dialogTitle = "An error occurred",
+                            dialogText = "The app is unable to process the query. The error message is: ${exception.message}",
+                            dialogPositiveButtonText = "Change model",
+                            onPositiveButtonClick = {},
+                            dialogNegativeButtonText = "",
+                            onNegativeButtonClick = {},
+                        )
+                    },
+                )
             }
-            _isGeneratingResponse.value = true
-            _partialResponse.value = ""
-            smolLMManager.getResponse(
-                query,
-                responseTransform = {
-                    // Replace <think> tags with <blockquote> tags
-                    // to get a neat Markdown rendering
-                    findThinkTagRegex.replace(it) { matchResult ->
-                        "<blockquote><i><h6>${matchResult.groupValues[1].trim()}</i></h6></blockquote>"
-                    }
-                },
-                scope = viewModelScope,
-                onPartialResponseGenerated = {
-                    _partialResponse.value = it
-                },
-                onSuccess = { response ->
-                    _isGeneratingResponse.value = false
-                    responseGenerationsSpeed = response.generationSpeed
-                    responseGenerationTimeSecs = response.generationTimeSecs
-                    appDB.updateChat(chat.copy(contextSizeConsumed = response.contextLengthUsed))
-                },
-                onCancelled = {
-                    // ignore CancellationException, as it was called because
-                    // `responseGenerationJob` was cancelled in the `stopGeneration` method
-                },
-                onError = { exception ->
-                    _isGeneratingResponse.value = false
-                    createAlertDialog(
-                        dialogTitle = "An error occurred",
-                        dialogText = "The app is unable to process the query. The error message is: ${exception.message}",
-                        dialogPositiveButtonText = "Change model",
-                        onPositiveButtonClick = {},
-                        dialogNegativeButtonText = "",
-                        onNegativeButtonClick = {},
-                    )
-                },
-            )
         }
     }
 
@@ -289,21 +309,27 @@ class ChatScreenViewModel(
     }
 
     fun deleteChat(chat: Chat) {
-        stopGeneration()
-        appDB.deleteChat(chat)
-        appDB.deleteMessages(chat.id)
-        _currChatState.value = null
+        viewModelScope.launch {
+            stopGeneration()
+            appDB.deleteChat(chat)
+            appDB.deleteMessages(chat.id)
+            _currChatState.value = null
+        }
     }
 
     fun deleteChatMessages(chat: Chat) {
-        stopGeneration()
-        appDB.deleteMessages(chat.id)
+        viewModelScope.launch {
+            stopGeneration()
+            appDB.deleteMessages(chat.id)
+        }
     }
 
     fun deleteModel(modelId: Long) {
-        modelsRepository.deleteModel(modelId)
-        if (_currChatState.value?.llmModelId == modelId) {
-            _currChatState.value = _currChatState.value?.copy(llmModelId = -1)
+        viewModelScope.launch {
+            modelsRepository.deleteModel(modelId)
+            if (_currChatState.value?.llmModelId == modelId) {
+                _currChatState.value = _currChatState.value?.copy(llmModelId = -1)
+            }
         }
     }
 
@@ -313,11 +339,12 @@ class ChatScreenViewModel(
      * read the system prompt and user messages from the database and add them to the model.
      */
     fun loadModel(onComplete: (ModelLoadingState) -> Unit = {}) {
-        _currChatState.value?.let { chat ->
-            val model = modelsRepository.getModelFromId(chat.llmModelId)
-            if (chat.llmModelId == -1L || model == null) {
-                _showSelectModelListDialogState.value = true
-            } else {
+        viewModelScope.launch {
+            _currChatState.value?.let { chat ->
+                val model = modelsRepository.getModelFromId(chat.llmModelId)
+                if (chat.llmModelId == -1L || model == null) {
+                    _showSelectModelListDialogState.value = true
+                } else {
                 _modelLoadState.value = ModelLoadingState.IN_PROGRESS
                 smolLMManager.load(
                     chat,
@@ -409,6 +436,40 @@ class ChatScreenViewModel(
         }
     }
 
+    fun handleShareIntent(text: String) {
+        viewModelScope.launch {
+            val chatCount = appDB.getChatsCount()
+            val newChat = appDB.addChat(chatName = "Untitled ${chatCount + 1}")
+            switchChat(newChat)
+            questionTextDefaultVal = text
+        }
+    }
+
+    fun handleTaskIntent(taskId: Long) {
+        viewModelScope.launch {
+            appDB.getTask(taskId)?.let { task ->
+                createChatFromTask(task)
+            }
+        }
+    }
+
+    fun createChatFromTask(task: Task) {
+        viewModelScope.launch {
+            modelsRepository.getModelFromId(task.modelId)?.let { model ->
+                val newChat =
+                    appDB.addChat(
+                        chatName = task.name,
+                        chatTemplate = model.chatTemplate,
+                        systemPrompt = task.systemPrompt,
+                        llmModelId = task.modelId,
+                        isTask = true,
+                    )
+                switchChat(newChat)
+                onEvent(ChatScreenUIEvent.DialogEvents.ToggleTaskListBottomList(visible = false))
+            }
+        }
+    }
+
     fun onEvent(event: ChatScreenUIEvent) {
         when (event) {
             is ChatScreenUIEvent.DialogEvents.ToggleSelectModelListDialog -> {
@@ -428,6 +489,54 @@ class ChatScreenViewModel(
             }
 
             else -> {}
+        }
+    }
+
+    fun addNewChat() {
+        viewModelScope.launch {
+            val chatCount = appDB.getChatsCount()
+            val newChat = appDB.addChat(chatName = "Untitled ${chatCount + 1}")
+            switchChat(newChat)
+        }
+    }
+
+    fun addFolder(name: String) {
+        viewModelScope.launch {
+            appDB.addFolder(name)
+        }
+    }
+
+    fun updateFolder(folder: Folder, newName: String) {
+        viewModelScope.launch {
+            appDB.updateFolder(folder.copy(name = newName))
+        }
+    }
+
+    fun deleteFolder(folder: Folder) {
+        viewModelScope.launch {
+            appDB.deleteFolder(folder.id)
+        }
+    }
+
+    fun deleteFolderWithChats(folder: Folder) {
+        viewModelScope.launch {
+            appDB.deleteFolderWithChats(folder.id)
+        }
+    }
+
+    fun editMessage(originalMessage: ChatMessage, newMessage: String, messages: List<ChatMessage>) {
+        viewModelScope.launch {
+            deleteMessage(originalMessage.id)
+            if (!messages.last().isUserMessage) {
+                deleteMessage(messages.last().id)
+            }
+            appDB.addUserMessage(originalMessage.chatId, newMessage)
+            unloadModel()
+            loadModel {
+                if (it == ModelLoadingState.SUCCESS) {
+                    sendUserQuery(newMessage, addMessageToDB = false)
+                }
+            }
         }
     }
 

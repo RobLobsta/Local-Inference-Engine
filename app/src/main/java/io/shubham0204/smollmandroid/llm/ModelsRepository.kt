@@ -28,7 +28,7 @@ class ModelsRepository(
     private val context: Context,
     private val appDB: AppDB,
 ) {
-    init {
+    suspend fun cleanupMissingModels() {
         for (model in appDB.getModelsList()) {
             if (!File(model.path).exists()) {
                 deleteModel(model.id)
@@ -47,13 +47,13 @@ class ModelsRepository(
         }
     }
 
-    fun getModelFromId(id: Long): LLMModel? = appDB.getModel(id)
+    suspend fun getModelFromId(id: Long): LLMModel? = appDB.getModel(id)
 
     fun getAvailableModels(): Flow<List<LLMModel>> = appDB.getModels()
 
-    fun getAvailableModelsList(): List<LLMModel> = appDB.getModelsList()
+    suspend fun getAvailableModelsList(): List<LLMModel> = appDB.getModelsList()
 
-    fun deleteModel(id: Long) {
+    suspend fun deleteModel(id: Long) {
         appDB.getModel(id)?.let {
             File(it.path).delete()
             appDB.deleteModel(it.id)

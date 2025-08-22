@@ -58,7 +58,7 @@ class AppDB(
     /** Get all chats from the database sorted by dateUsed in descending order. */
     fun getChats(): Flow<List<Chat>> = db.chatsDao().getChats()
 
-    fun loadDefaultChat(): Chat {
+    suspend fun loadDefaultChat(): Chat {
         val defaultChat =
             if (getChatsCount() == 0L) {
                 addChat("Untitled")
@@ -75,102 +75,82 @@ class AppDB(
      * Get the most recently used chat from the database. This function might return null, if there
      * are no chats in the database.
      */
-    fun getRecentlyUsedChat(): Chat? =
-        runBlocking(Dispatchers.IO) {
-            db.chatsDao().getRecentlyUsedChat()
-        }
+    suspend fun getRecentlyUsedChat(): Chat? = db.chatsDao().getRecentlyUsedChat()
 
     /**
      * Adds a new chat to the database initialized with given
      * arguments and returns the new Chat object
      */
-    fun addChat(
+    suspend fun addChat(
         chatName: String,
         chatTemplate: String = "",
         systemPrompt: String = "You are a helpful assistant.",
         llmModelId: Long = -1,
         isTask: Boolean = false,
-    ): Chat =
-        runBlocking(Dispatchers.IO) {
-            val newChat =
-                Chat(
-                    name = chatName,
-                    systemPrompt = systemPrompt,
-                    dateCreated = Date(),
-                    dateUsed = Date(),
-                    llmModelId = llmModelId,
-                    contextSize = 2048,
-                    chatTemplate = chatTemplate,
-                    isTask = isTask,
-                )
-            val newChatId = db.chatsDao().insertChat(newChat)
-            newChat.copy(id = newChatId)
-        }
+    ): Chat {
+        val newChat =
+            Chat(
+                name = chatName,
+                systemPrompt = systemPrompt,
+                dateCreated = Date(),
+                dateUsed = Date(),
+                llmModelId = llmModelId,
+                contextSize = 2048,
+                chatTemplate = chatTemplate,
+                isTask = isTask,
+            )
+        val newChatId = db.chatsDao().insertChat(newChat)
+        return newChat.copy(id = newChatId)
+    }
 
     /** Update the chat in the database. */
-    fun updateChat(modifiedChat: Chat) =
-        runBlocking(Dispatchers.IO) {
-            db.chatsDao().updateChat(modifiedChat)
-        }
+    suspend fun updateChat(modifiedChat: Chat) = db.chatsDao().updateChat(modifiedChat)
 
-    fun deleteChat(chat: Chat) =
-        runBlocking(Dispatchers.IO) {
-            db.chatsDao().deleteChat(chat.id)
-        }
+    suspend fun deleteChat(chat: Chat) = db.chatsDao().deleteChat(chat.id)
 
-    fun getChatsCount(): Long =
-        runBlocking(Dispatchers.IO) {
-            db.chatsDao().getChatsCount()
-        }
+    suspend fun getChatsCount(): Long = db.chatsDao().getChatsCount()
 
-    fun getChatsForFolder(folderId: Long): Flow<List<Chat>> = db.chatsDao().getChatsForFolder(folderId)
+    fun getChatsForFolder(folderId: Long): Flow<List<Chat>> =
+        db.chatsDao().getChatsForFolder(folderId)
 
     // Chat Messages
 
     fun getMessages(chatId: Long): Flow<List<ChatMessage>> = db.chatMessagesDao().getMessages(chatId)
 
-    fun getMessagesForModel(chatId: Long): List<ChatMessage> =
-        runBlocking(Dispatchers.IO) {
-            db.chatMessagesDao().getMessagesForModel(chatId)
-        }
+    suspend fun getMessagesForModel(chatId: Long): List<ChatMessage> =
+        db.chatMessagesDao().getMessagesForModel(chatId)
 
-    fun addUserMessage(
+    suspend fun addUserMessage(
         chatId: Long,
         message: String,
-    ) = runBlocking(Dispatchers.IO) {
+    ) {
         db
             .chatMessagesDao()
             .insertMessage(ChatMessage(chatId = chatId, message = message, isUserMessage = true))
     }
 
-    fun addAssistantMessage(
+    suspend fun addAssistantMessage(
         chatId: Long,
         message: String,
-    ) = runBlocking(Dispatchers.IO) {
+    ) {
         db
             .chatMessagesDao()
             .insertMessage(ChatMessage(chatId = chatId, message = message, isUserMessage = false))
     }
 
-    fun deleteMessage(messageId: Long) =
-        runBlocking(Dispatchers.IO) {
-            db.chatMessagesDao().deleteMessage(messageId)
-        }
+    suspend fun deleteMessage(messageId: Long) = db.chatMessagesDao().deleteMessage(messageId)
 
-    fun deleteMessages(chatId: Long) =
-        runBlocking(Dispatchers.IO) {
-            db.chatMessagesDao().deleteMessages(chatId)
-        }
+    suspend fun deleteMessages(chatId: Long) = db.chatMessagesDao().deleteMessages(chatId)
 
     // Models
 
-    fun addModel(
+    suspend fun addModel(
         name: String,
         url: String,
         path: String,
         contextSize: Int,
         chatTemplate: String,
-    ) = runBlocking(Dispatchers.IO) {
+    ) {
         db.llmModelDao().insertModels(
             LLMModel(
                 name = name,
@@ -182,81 +162,62 @@ class AppDB(
         )
     }
 
-    fun getModel(id: Long): LLMModel? =
-        runBlocking(Dispatchers.IO) {
-            try {
-                db.llmModelDao().getModel(id)
-            } catch (_: IllegalArgumentException) {
-                null
-            }
+    suspend fun getModel(id: Long): LLMModel? {
+        return try {
+            db.llmModelDao().getModel(id)
+        } catch (_: IllegalArgumentException) {
+            null
         }
+    }
 
-    fun getModels(): Flow<List<LLMModel>> = runBlocking(Dispatchers.IO) { db.llmModelDao().getAllModels() }
+    fun getModels(): Flow<List<LLMModel>> = db.llmModelDao().getAllModels()
 
-    fun getModelsList(): List<LLMModel> = runBlocking(Dispatchers.IO) { db.llmModelDao().getAllModelsList() }
+    suspend fun getModelsList(): List<LLMModel> = db.llmModelDao().getAllModelsList()
 
-    fun deleteModel(id: Long) =
-        runBlocking(Dispatchers.IO) {
-            db.llmModelDao().deleteModel(id)
-        }
+    suspend fun deleteModel(id: Long) = db.llmModelDao().deleteModel(id)
 
     // Tasks
 
-    fun getTask(taskId: Long): Task =
-        runBlocking(Dispatchers.IO) {
-            db.taskDao().getTask(taskId)
-        }
+    suspend fun getTask(taskId: Long): Task = db.taskDao().getTask(taskId)
 
     fun getTasks(): Flow<List<Task>> = db.taskDao().getTasks()
 
-    fun addTask(
+    suspend fun addTask(
         name: String,
         systemPrompt: String,
         modelId: Long,
-    ) = runBlocking(Dispatchers.IO) {
+    ) {
         db.taskDao().insertTask(Task(name = name, systemPrompt = systemPrompt, modelId = modelId))
     }
 
-    fun deleteTask(taskId: Long) =
-        runBlocking(Dispatchers.IO) {
-            db.taskDao().deleteTask(taskId)
-        }
+    suspend fun deleteTask(taskId: Long) = db.taskDao().deleteTask(taskId)
 
-    fun updateTask(task: Task) =
-        runBlocking(Dispatchers.IO) {
-            db.taskDao().updateTask(task)
-        }
+    suspend fun updateTask(task: Task) = db.taskDao().updateTask(task)
 
     // Folders
 
     fun getFolders(): Flow<List<Folder>> = db.folderDao().getFolders()
 
-    fun addFolder(folderName: String) =
-        runBlocking(Dispatchers.IO) {
-            db.folderDao().insertFolder(Folder(name = folderName))
-        }
+    suspend fun addFolder(folderName: String) {
+        db.folderDao().insertFolder(Folder(name = folderName))
+    }
 
-    fun updateFolder(folder: Folder) =
-        runBlocking(Dispatchers.IO) {
-            db.folderDao().updateFolder(folder)
-        }
+    suspend fun updateFolder(folder: Folder) = db.folderDao().updateFolder(folder)
 
     /**
      * Deletes the folder from the Folder table only
      */
-    fun deleteFolder(folderId: Long) =
-        runBlocking(Dispatchers.IO) {
-            db.folderDao().deleteFolder(folderId)
-            db.chatsDao().updateFolderIds(folderId, -1L)
-        }
+    suspend fun deleteFolder(folderId: Long) {
+        db.folderDao().deleteFolder(folderId)
+        db.chatsDao().updateFolderIds(folderId, -1L)
+    }
 
     /**
      * Deletes the folder from the Folder table
      * and corresponding chats from the Chat table
      */
-    fun deleteFolderWithChats(folderId: Long) =
-        runBlocking(Dispatchers.IO) {
-            db.folderDao().deleteFolder(folderId)
-            db.chatsDao().deleteChatsInFolder(folderId)
-        }
+    suspend fun deleteFolderWithChats(folderId: Long) {
+        db.folderDao().deleteFolder(folderId)
+        db.chatsDao().deleteChatsInFolder(folderId)
+    }
 }

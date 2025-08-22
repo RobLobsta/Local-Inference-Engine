@@ -1,6 +1,6 @@
 <img src="resources/app_icon/icon.png" alt="app icon" width="256"/>
 
-# SmolChat - On-Device Inference of SLMs in Android
+# LobstaChat - On-Device Inference of SLMs in Android
 
 <table>
 <tr>
@@ -29,15 +29,9 @@
 
 ## Installation
 
-### Google Play
-
-![](https://raw.githubusercontent.com/pioug/google-play-badges/06ccd9252af1501613da2ca28eaffe31307a4e6d/svg/English.svg)
-
-**[Get it on Google Play](https://play.google.com/store/apps/details?id=io.shubham0204.smollmandroid)**
-
 ### GitHub
 
-1. Download the latest APK from [GitHub Releases](https://github.com/shubham0204/SmolChat-Android/releases/) and transfer it to your Android device.
+1. Download the latest APK from [GitHub Releases](https://github.com/RobLobsta/LobstaChat-Android/releases/) and transfer it to your Android device.
 2. If your device does not downloading APKs from untrusted sources, search for **how to allow downloading APKs from unknown sources** for your device.
 
 ### Obtainium
@@ -46,8 +40,8 @@
 
 1. [Download the Obtainium app](https://obtainium.imranr.dev/) by choosing your device architecture or 'Download Universal APK'.
 2. From the bottom menu, select '➕Add App'
-3. In the text field labelled 'App source URL *', enter the following URL and click 'Add' besides the text field: `https://github.com/shubham0204/SmolChat-Android`
-4. SmolChat should now be visible in the 'Apps' screen. You can get notifications about newer releases and download them directly without going to the GitHub repo.
+3. In the text field labelled 'App source URL *', enter the following URL and click 'Add' besides the text field: `https://github.com/RobLobsta/LobstaChat-Android`
+4. LobstaChat should now be visible in the 'Apps' screen. You can get notifications about newer releases and download them directly without going to the GitHub repo.
 
 ## Project Goals
 
@@ -62,8 +56,8 @@
 1. Clone the repository with its submodule originating from llama.cpp,
 
 ```commandline
-git clone --depth=1 https://github.com/shubham0204/SmolChat-Android
-cd SmolChat-Android
+git clone --depth=1 https://github.com/RobLobsta/LobstaChat-Android
+cd LobstaChat-Android
 git submodule update --init --recursive
 ```
 
@@ -76,12 +70,12 @@ git submodule update --init --recursive
 1. The application uses llama.cpp to load and execute GGUF models. As llama.cpp is written in pure C/C++, it is easy 
    to compile on Android-based targets using the [NDK](https://developer.android.com/ndk). 
 
-2. The `smollm` module uses a `llm_inference.cpp` class which interacts with llama.cpp's C-style API to execute the 
-   GGUF model and a JNI binding `smollm.cpp`. Check the [C++ source files here](https://github.com/shubham0204/SmolChat-Android/tree/main/smollm/src/main/cpp). On the Kotlin side, the [`SmolLM`](https://github.com/shubham0204/SmolChat-Android/blob/main/smollm/src/main/java/io/shubham0204/smollm/SmolLM.kt) class provides 
+2. The `lobstachat` module uses a `llm_inference.cpp` class which interacts with llama.cpp's C-style API to execute the
+   GGUF model and a JNI binding `lobstachat.cpp`. Check the [C++ source files here](https://github.com/RobLobsta/LobstaChat-Android/tree/main/lobstachat/src/main/cpp). On the Kotlin side, the [`LobstaChatLM`](https://github.com/RobLobsta/LobstaChat-Android/blob/main/lobstachat/src/main/java/com/roblobsta/lobstachat/smollm/LobstaChatLM.kt) class provides
    the required methods to interact with the JNI (C++ side) bindings.
 
 3. The `app` module contains the application logic and UI code. Whenever a new chat is opened, the app instantiates 
-   the `SmolLM` class and provides it the model file-path which is stored by the [`LLMModel`](https://github.com/shubham0204/SmolChat-Android/blob/main/app/src/main/java/io/shubham0204/smollmandroid/data/DataModels.kt) entity.
+   the `LobstaChatLM` class and provides it the model file-path which is stored by the [`LLMModel`](https://github.com/RobLobsta/LobstaChat-Android/blob/main/app/src/main/java/com/roblobsta/lobstachat/data/DataModels.kt) entity.
    Next, the app adds messages with role `user` and `system` to the chat by retrieving them from the database and
    using `LLMInference::addChatMessage`.
 
@@ -99,32 +93,9 @@ git submodule update --init --recursive
   Markwon and [Prism4j](https://github.com/noties/Prism4j) (for code syntax highlighting) to render Markdown responses 
   from the SLMs.
 
-## More On-Device ML Projects
-
-- [shubham0204/Android-Doc-QA](https://github.com/shubham0204/Android-Document-QA): On-device RAG-based question 
-  answering from documents
-- [shubham0204/OnDevice-Face-Recognition-Android](https://github.com/shubham0204/OnDevice-Face-Recognition-Android): 
-  Realtime face recognition with FaceNet, Mediapipe and ObjectBox's vector database
-- [shubham0204/FaceRecognition_With_FaceNet_Android](https://github.com/shubham0204/OnDevice-Face-Recognition-Android):
-  Realtime face recognition with FaceNet, MLKit
-- [shubham0204/CLIP-Android](https://github.com/shubham0204/CLIP-Android): On-device CLIP inference in Android 
-  (search images with textual queries)
-- [shubham0204/Segment-Anything-Android](https://github.com/shubham0204/Segment-Anything-Android): Execute Meta's 
-  SAM model in Android with onnxruntime
-- [shubham0204/Depth-Anything-Android](https://github.com/shubham0204/Depth-Anything-Android): Execute the 
-  Depth-Anything model in Android with onnxruntime for monocular depth estimation
-- [shubham0204/Sentence-Embeddings-Android](https://github.com/shubham0204/Sentence-Embeddings-Android): Generate 
-  sentence-embeddings (from models like `all-MiniLM-L6-V2`) in Android
-
 ## Future
 
 The following features/tasks are planned for the future releases of the app:
 
-- Assign names to chats automatically (just like ChatGPT and Claude)
-- Add a search bar to the navigation drawer to search for messages within chats
-- Add a background service which uses BlueTooth/HTTP/WiFi to communicate with a desktop application to send queries 
-  from the desktop to the mobile device for inference
-- Enable auto-scroll when generating partial response in `ChatActivity`
-- Measure RAM consumption
-- Integrate [Android-Doc-QA](https://github.com/shubham0204/Android-Document-QA) for on-device RAG-based question answering from documents
-- Check if llama.cpp can be compiled to use Vulkan for inference on Android devices (and use the mobile GPU)
+- **Desktop Integration:** Add a background service that uses BlueTooth/HTTP/WiFi to communicate with a desktop application. This would allow sending queries from the desktop to the mobile device for inference.
+- **Vulkan for Inference:** Investigate if llama.cpp can be compiled to use Vulkan for inference on Android devices, which would leverage the mobile GPU for faster performance.

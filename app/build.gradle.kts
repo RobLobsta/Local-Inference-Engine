@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "io.shubham0204.smollmandroid"
+    namespace = "com.roblobsta.lobstachat"
     compileSdk = 34
     ndkVersion = "27.2.12479018"
 
     defaultConfig {
-        applicationId = "io.shubham0204.smollmandroid"
+        applicationId = "com.roblobsta.lobstachat"
         minSdk = 26
         targetSdk = 34
         versionCode = 10
@@ -83,8 +83,8 @@ dependencies {
     implementation(libs.androidx.material3.icons.extended)
     implementation(libs.androidx.compose.navigation)
 
-    implementation(project(":smollm"))
-    implementation(project(":hf-model-hub-api"))
+    implementation(project(":lobstachat-lm"))
+    implementation(project(":lobstachat-hf-api"))
 
     // Koin: dependency injection
     implementation(libs.koin.android)

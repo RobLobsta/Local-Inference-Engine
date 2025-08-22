@@ -4,8 +4,8 @@
 - Referring [llama.rn](https://github.com/mybigday/llama.rn), the React Native bindings for llama.cpp, we 
   build/compile multiple shared libraries, each 
   targeting a specific set of CPU extensions and a Arm64-v8 version. The app then, at runtime, loads the appropriate shared library by determining the CPU extensions available on the device and the Arm version using `System.loadLibrary`.
-- To see how multiple shared libraries are compiled, check [`smollm/src/main/cpp/CMakeLists.txt`](https://github.com/shubham0204/SmolChat-Android/blob/main/smollm/src/main/cpp/CMakeLists.txt).
-- To see how the app loads the appropriate shared library, check [`smollm/src/main/java/io/shubham0204/smollm/SmolLM.kt`](https://github.com/shubham0204/SmolChat-Android/blob/main/smollm/src/main/java/io/shubham0204/smollm/SmolLM.kt).
+- To see how multiple shared libraries are compiled, check [`lobstachat/src/main/cpp/CMakeLists.txt`](https://github.com/RobLobsta/LobstaChat-Android/blob/main/lobstachat/src/main/cpp/CMakeLists.txt).
+- To see how the app loads the appropriate shared library, check [`lobstachat/src/main/java/com/roblobsta/lobstachat/smollm/LobstaChatLM.kt`](https://github.com/RobLobsta/LobstaChat-Android/blob/main/lobstachat/src/main/java/com/roblobsta/lobstachat/smollm/LobstaChatLM.kt).
 
 > [!NOTE]
 > The APK contains multiple `.so` files for the `arm64-v8a` and `armeabi-v7a` ABIs. As the size of each `.so` file < 1 MB, the increase 
@@ -43,9 +43,9 @@ The following metrics were observed on a [Samsung M02 device](https://www.gsmare
 
 ### Configuring CMake
 
-- In [`smollm/src/main/cpp/CMakeLists.txt`](https://github.com/shubham0204/SmolChat-Android/blob/main/smollm/src/main/cpp/CMakeLists.txt), 
-we list all source files from llama.cpp and `smollm/src/main/cpp` to compile them into a single target.
+- In [`lobstachat/src/main/cpp/CMakeLists.txt`](https://github.com/RobLobsta/LobstaChat-Android/blob/main/lobstachat/src/main/cpp/CMakeLists.txt),
+we list all source files from llama.cpp and `lobstachat/src/main/cpp` to compile them into a single target.
 
-- Normally, we would compile the target `smollm` and link it dynamically with targets `llama`, `common` and `ggml` 
+- Normally, we would compile the target `lobstachat` and link it dynamically with targets `llama`, `common` and `ggml`
 defined by llama.cpp. As we need to compile with different CPU flags, we combine the source files of all llama.cpp 
-targets and our own JNI bindings into one single target `smollm` and then apply the CPU flags with `target_compile_options`.
+targets and our own JNI bindings into one single target `lobstachat` and then apply the CPU flags with `target_compile_options`.

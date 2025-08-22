@@ -23,7 +23,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SmolChat Android"
+rootProject.name = "LobstaChat"
 include(":app")
-include(":smollm")
-include(":hf-model-hub-api")
+include(":lobstachat-lm")
+include(":lobstachat-hf-api")

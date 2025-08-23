@@ -21,8 +21,8 @@ plugins {
 
 android {
     namespace = "com.roblobsta.lobstachat.lm"
-    compileSdk = 35
-    ndkVersion = "27.2.12479018"
+    compileSdk = 34
+    ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
         minSdk = 26
@@ -59,16 +59,17 @@ android {
     }
     externalNativeBuild {
         cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
+            path = file("../../llama-cpp-src/CMakeLists.txt")
             version = "3.22.1"
         }
     }
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+    implementation(project(":llama-cpp-src"))
+    implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
-    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.junit)
 }

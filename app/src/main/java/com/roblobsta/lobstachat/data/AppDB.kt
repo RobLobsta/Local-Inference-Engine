@@ -1,6 +1,6 @@
 package com.roblobsta.lobstachat.data
 
-import android.content.Context
+import android.app.Application
 import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
@@ -42,14 +42,16 @@ abstract class AppRoomDatabase : RoomDatabase() {
     abstract fun folderDao(): FolderDao
 }
 
+import com.roblobsta.lobstachat.R
+
 @Single
 class AppDB(
-    context: Context,
+    private val application: Application,
 ) {
     private val db =
         Room
             .databaseBuilder(
-                context,
+                application,
                 AppRoomDatabase::class.java,
                 "app-database",
             ).addMigrations(MIGRATION_1_2)
@@ -61,16 +63,7 @@ class AppDB(
     fun searchChats(query: String): Flow<List<Chat>> = db.chatsDao().searchChats("%$query%")
 
     suspend fun loadDefaultChat(): Chat {
-        val defaultChat =
-            if (getChatsCount() == 0L) {
-                addChat("Untitled")
-                getRecentlyUsedChat()!!
-            } else {
-                // Given that chatsDB has at least one chat
-                // chatsDB.getRecentlyUsedChat() will never return null
-                getRecentlyUsedChat()!!
-            }
-        return defaultChat
+        return getRecentlyUsedChat() ?: addChat(application.getString(R.string.default_chat_name))
     }
 
     /**
@@ -89,7 +82,7 @@ class AppDB(
     suspend fun addChat(
         chatName: String,
         chatTemplate: String = "",
-        systemPrompt: String = "You are a helpful assistant.",
+        systemPrompt: String = application.getString(R.string.default_system_prompt),
         llmModelId: Long = -1,
         isTask: Boolean = false,
     ): Chat =
@@ -246,19 +239,21 @@ class AppDB(
     /**
      * Deletes the folder from the Folder table only
      */
-    suspend fun deleteFolder(folderId: Long) =
+    suspend fun deleteFolder(folderId: Long) {
         withContext(Dispatchers.IO) {
             db.folderDao().deleteFolder(folderId)
             db.chatsDao().updateFolderIds(folderId, -1L)
         }
+    }
 
     /**
      * Deletes the folder from the Folder table
      * and corresponding chats from the Chat table
      */
-    suspend fun deleteFolderWithChats(folderId: Long) =
+    suspend fun deleteFolderWithChats(folderId: Long) {
         withContext(Dispatchers.IO) {
             db.folderDao().deleteFolder(folderId)
             db.chatsDao().deleteChatsInFolder(folderId)
         }
+    }
 }

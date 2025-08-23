@@ -1,1 +1,1 @@
-SmolChat lets users run LLMs locally on Android via llama.cpp
+LobstaChat lets users run LLMs locally on Android via llama.cpp

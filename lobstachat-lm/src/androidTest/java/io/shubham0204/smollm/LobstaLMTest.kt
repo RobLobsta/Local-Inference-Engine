@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package io.shubham0204.smollm
+package io.shubham0204.lobstalm
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.roblobsta.lobstachat.lm.GGUFReader
+import com.roblobsta.lobstachat.lm.LobstaLM
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -25,22 +27,22 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class SmolLMTest {
-    private val modelPath = "/data/local/tmp/smollm2-360m-instruct-q8_0.gguf"
+class LobstaLMTest {
+    private val modelPath = "/data/local/tmp/lobstalm2-360m-instruct-q8_0.gguf"
     private val minP = 0.05f
     private val temperature = 1.0f
     private val systemPrompt = "You are a helpful assistant"
     private val query = "How are you?"
     private val chatTemplate =
         "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}"
-    private val smolLM = SmolLM()
+    private val lobstaLM = LobstaLM()
 
     @Before
     fun setup() =
         runTest {
-            smolLM.load(
+            lobstaLM.load(
                 modelPath,
-                SmolLM.InferenceParams(
+                LobstaLM.InferenceParams(
                     minP,
                     temperature,
                     storeChats = true,
@@ -51,13 +53,13 @@ class SmolLMTest {
                     useMlock = false,
                 ),
             )
-            smolLM.addSystemPrompt(systemPrompt)
+            lobstaLM.addSystemPrompt(systemPrompt)
         }
 
     @Test
     fun getResponse_AsFlow_works() =
         runTest {
-            val responseFlow = smolLM.getResponseAsFlow(query)
+            val responseFlow = lobstaLM.getResponseAsFlow(query)
             val responseTokens = responseFlow.toList()
             assert(responseTokens.isNotEmpty())
         }
@@ -65,9 +67,9 @@ class SmolLMTest {
     @Test
     fun getResponseAsFlowGenerationSpeed_works() =
         runTest {
-            val speedBeforePrediction = smolLM.getResponseGenerationSpeed().toInt()
-            smolLM.getResponseAsFlow(query).toList()
-            val speedAfterPrediction = smolLM.getResponseGenerationSpeed().toInt()
+            val speedBeforePrediction = lobstaLM.getResponseGenerationSpeed().toInt()
+            lobstaLM.getResponseAsFlow(query).toList()
+            val speedAfterPrediction = lobstaLM.getResponseGenerationSpeed().toInt()
             assert(speedBeforePrediction == 0)
             assert(speedAfterPrediction > 0)
         }
@@ -83,6 +85,6 @@ class SmolLMTest {
 
     @After
     fun close() {
-        smolLM.close()
+        lobstaLM.close()
     }
 }

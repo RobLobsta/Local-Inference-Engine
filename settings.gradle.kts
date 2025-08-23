@@ -25,5 +25,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "LobstaChat"
 include(":app")
+include(":llama-cpp-src")
+project(":llama-cpp-src").projectDir = file("llama-cpp-src")
 include(":lobstachat-lm")
 include(":lobstachat-hf-api")

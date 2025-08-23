@@ -16,20 +16,23 @@
 
 package com.roblobsta.lobstachat.llm
 
-import android.content.Context
+import android.app.Application
 import com.roblobsta.lobstachat.data.AppDB
 import com.roblobsta.lobstachat.data.LLMModel
 import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
 import java.io.File
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 @Single
 class ModelsRepository(
-    private val context: Context,
+    private val application: Application,
     private val appDB: AppDB,
 ) {
 
-    suspend fun cleanupOrphanedModels() {
+    suspend fun cleanupOrphanedModels() = withContext(Dispatchers.IO) {
         for (model in appDB.getModelsList()) {
             if (!File(model.path).exists()) {
                 deleteModel(model.id)
@@ -37,13 +40,13 @@ class ModelsRepository(
         }
     }
 
-    suspend fun checkIfModelsDownloaded(): Boolean {
-        context.filesDir.listFiles()?.forEach { file ->
+    suspend fun checkIfModelsDownloaded(): Boolean = withContext(Dispatchers.IO) {
+        application.filesDir.listFiles()?.forEach { file ->
             if (file.isFile && file.name.endsWith(".gguf")) {
-                return true
+                return@withContext true
             }
         }
-        return false
+        return@withContext false
     }
 
     suspend fun getModelFromId(id: Long): LLMModel? = appDB.getModel(id)
